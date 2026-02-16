@@ -29,7 +29,6 @@
 - EXEC（subagent 执行报告）：
   - `Audit-Report/<YYYY-MM-DD>/exec_openclaw_run<run_id>_round1.md`
   - `Audit-Report/<YYYY-MM-DD>/exec_openclaw_run<run_id>_round2.md`
-  - （可选中文同名 `_CN.md`）
 - REVIEW（主会话验收报告，你输出）：
   - `Audit-Report/<YYYY-MM-DD>/review_openclaw_run<run_id>_round1.md`
   - `Audit-Report/<YYYY-MM-DD>/review_openclaw_run<run_id>_round2.md`
