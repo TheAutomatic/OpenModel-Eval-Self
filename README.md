@@ -16,3 +16,6 @@ This repo is the **single source of truth** for audit artifacts; do not write ne
 ## Runbooks
 - `WORKFLOW-OpenClaw-SelfAudit-REVIEW.md` — reviewer (main session) workflow (KR mode A)
 - `WORKFLOW-OpenClaw-SelfAudit-EXEC.md` — executor (subagent) workflow (KR mode A)
+
+## External Reviewer Guide
+- `CLAUDE-REVIEW-GUIDE.md` — how Claude should read one run, validate evidence closure, and produce actionable feedback (`MUST FIX / SHOULD IMPROVE / NIT`).
