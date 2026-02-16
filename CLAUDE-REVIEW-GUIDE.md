@@ -18,7 +18,7 @@
 - REVIEW 的结论是否与手册规则一致：
   - 是否明确 `Result` 与 `Audit Completeness`
   - 是否抽查了至少 2 个 session
-  - 是否覆盖 T3（git commit/push）
+  - 是否覆盖 T3（git commit/push）（若 `T3=SKIPPED`，是否改查“最后一个非 SKIPPED task”并注明原因）
   - 若缺证据，是否标记 `INCOMPLETE` 或 `Fail`
 
 ### B. 证据闭环（再看 EXEC + _sessions）
@@ -26,6 +26,7 @@
   - T1/T2/T3/T4 是否都存在真实工具事件痕迹
   - T3 是否能命中 `git commit` 与 `git push`
   - 有没有“报告写了输出，但事件流没有 toolCall/toolResult”的伪造风险
+  - 是否出现 `Partial-Silent`（有工具事件但无命令输出）；若出现，是否被标记为 Partial 并要求补证据
 
 ### C. KR 节奏符合性
 - 是否有 `CHECKPOINT` + `CHECKPOINT_ID`
