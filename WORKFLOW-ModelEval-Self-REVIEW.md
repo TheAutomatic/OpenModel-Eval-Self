@@ -95,20 +95,42 @@
 > **异步队列保险丝**：消息平台可能延迟回放旧 checkpoint；REVIEW 不得仅凭“最新收到的一条消息”放行，必须按 `CHECKPOINT_ID` 序列核对。
 
 - 生成 `run_id=YYYYMMDD_HHMM`（重跑=新 run_id）。
-- **编排拓扑（必须）**：`SG -> sub1(reviewer) -> sub2(exec round1), sub3(exec round2)`。
-- **顺序门控（必须）**：
-  1) sub1 先 spawn sub2，仅执行 Round1。
-  2) Round1 未完成“Challenge + 评分 + round1 verdict”前，**禁止** spawn sub3。
-  3) round1 关闭后，sub1 再 spawn sub3 执行 Round2。
-- **执行语义（DIRECT_EXEC）**：
-  - 初次下发：sub2/sub3 必须直读 `WORKFLOW-ModelEval-Self-EXEC.md` 原文执行。
-  - 纠错/质询重做：sub1 可转述，但仅限“引用 EXEC 原文条款 + 指明缺失证据/不合规点”；不得新增 EXEC 原文之外的新任务目标。
 - **模型策略（必须）**：
-  - 主会话（评审官）使用“当前对话正在用的模型”，不额外指定。
-  - subagent（执行者）模型 **由 Operator 指定**（派工时显式传入），评审官不得私自替换。
+  - 主会话（评审官）使用当前对话模型，不额外指定。
+  - subagent（执行者）模型由 Operator 派工时显式指定。
 - 产物写入：`Audit-Report/<YYYY-MM-DD>/`。
-- **并发分支策略（必须）**：若派多个执行者并发自评估，每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`（例如 `Self-audit/A`、`Self-audit/B`），避免 git push 冲突。
 - **单次 run 分支一致性（必须）**：同一个 `run_id` 的 EXEC 产物、REVIEW 报告、`_sessions` 归档必须落在同一 `SELF_AUDIT_BRANCH`；`main` 只接收最终合并结果。
+
+### 2.3 sub1 执行细化（Round1→Round2）
+
+#### Phase R1（sub2）
+1) sub1 派发 sub2（仅 Round1，DIRECT_EXEC）：
+   - 指令必须包含：`run_id`、`round=1`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
+2) sub1 盯 checkpoint：
+   - 仅接受 `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
+   - 放行必须回复 `OK_NEXT <CHECKPOINT_ID>`，其余控制消息按忽略规则处理。
+3) sub1 完成 Round1 质询与评分：
+   - Challenge（≥2 句不同话术）
+   - 写 `review_openclaw_run<run_id>_round1.md`
+   - 归档 `_sessions/session_<run_id>_round1__*.gz`
+4) sub1 写入 round1 verdict：
+   - 至少包含：`Result`、`Audit Completeness`、`Model consistency`。
+
+#### Phase Gate（R1→R2）
+仅当以下条件全部满足，才允许进入 R2：
+- [ ] round1 报告已落盘
+- [ ] round1 归档已落盘且可抽查
+- [ ] round1 已完成 Challenge + 评分 + verdict
+
+#### Phase R2（sub3）
+1) sub1 派发 sub3（仅 Round2，DIRECT_EXEC）：
+   - 指令必须包含：`run_id`、`round=2`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
+2) sub1 重复与 R1 相同的 checkpoint/Challenge/评分/归档流程。
+3) 写 `review_openclaw_run<run_id>_round2.md` 并给出 round2 verdict。
+
+#### 转述边界（DIRECT_EXEC）
+- 初次下发：sub2/sub3 必须直读 EXEC 原文，不得由 sub1 用“摘要任务书”替代。
+- 纠错/质询重做：允许 sub1 转述，但必须引用 EXEC 原文条款，并明确“缺失证据点/不合规点”；不得新增原文外目标。
 
 ---
 
