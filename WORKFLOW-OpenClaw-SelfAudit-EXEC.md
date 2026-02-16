@@ -72,9 +72,12 @@ PY /home/ubuntu/.openclaw/agents/main/sessions/<PASTE_FILE>.jsonl
 
 - 你必须按顺序执行：`T1 → CHECKPOINT → T2 → CHECKPOINT → T3 → CHECKPOINT → T4(可选) → CHECKPOINT`。
 - 每个 CHECKPOINT 都必须：
-  1) 用 3-6 行总结“我刚完成了什么 + 关键证据在哪里（引用你刚贴的输出块）”。
-  2) 明确写：`WAITING_REVIEW_OK_NEXT`。
-  3) **停止继续执行后续任务**，直到 REVIEW 明确回复 `OK_NEXT` 才能进入下一步。
+  1) 生成唯一标识：`CHECKPOINT_ID=<run_id>/<round>/<Tn>/<seq>`（例如 `20260216_1054/round1/T2/1`）。
+  2) 用 3-6 行总结“我刚完成了什么 + 关键证据在哪里（引用你刚贴的输出块）”。
+  3) 明确写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
+  4) **停止继续执行后续任务**，直到 REVIEW 明确回复 `OK_NEXT <CHECKPOINT_ID>` 才能进入下一步。
+
+- **乱序/过期消息处理（必须）**：若收到不匹配当前 `CHECKPOINT_ID` 的 `OK_NEXT`，一律回 `STALE_CHECKPOINT_IGNORED` 并继续等待，不得前进。
 
 > 注意：你仍然需要在 Round 开始前打 `ANCHOR_UTC`，在 Round 结束后贴出 `find -newermt` 的候选 sessions。
 
@@ -114,7 +117,7 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
    - `grep -E '^MemTotal:' /proc/meminfo`
 
 #### CHECKPOINT after T1 (KR)
-- 写出 `CHECKPOINT T1` 小结 + `WAITING_REVIEW_OK_NEXT`，并停止继续执行。
+- 写出 `CHECKPOINT T1` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`，并停止继续执行。
 
 ### T2) 写入工具链（/tmp 固定文字）
 写入目标：
@@ -130,7 +133,7 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
 2) `[OBSERVED]` `head -5`（必须出现固定字符串）
 
 #### CHECKPOINT after T2 (KR)
-- 写出 `CHECKPOINT T2` 小结 + `WAITING_REVIEW_OK_NEXT`，并停止继续执行。
+- 写出 `CHECKPOINT T2` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`，并停止继续执行。
 
 ### T3) Git 工具链（push 到 Audit-Report/）
 写入目标目录：
@@ -147,7 +150,7 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
 4) `[OBSERVED]` `git push --porcelain github HEAD:${SELF_AUDIT_BRANCH}` 输出片段
 
 #### CHECKPOINT after T3 (KR)
-- 写出 `CHECKPOINT T3` 小结 + `WAITING_REVIEW_OK_NEXT`，并停止继续执行。
+- 写出 `CHECKPOINT T3` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`，并停止继续执行。
 
 > **说明（必须遵守）**：本模式下，T3 不要求你归档 session；你只需提供锚点与候选 session 列表，评审官会从中归档并抽查包含 T3 的 toolCall/toolResult。
 
@@ -162,7 +165,7 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 ```
 
 #### CHECKPOINT after T4 (KR)
-- 写出 `CHECKPOINT T4` 小结 + `WAITING_REVIEW_OK_NEXT`（或声明 `T4=SKIPPED` 的 checkpoint），并停止继续执行。
+- 写出 `CHECKPOINT T4` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`（或声明 `T4=SKIPPED` 的 checkpoint），并停止继续执行。
 
 ---
 

@@ -43,8 +43,10 @@
 > 目标：避免“先全跑完再审”拉长战线。每个任务点（T1/T2/T3/T4）都应当形成 **EXEC→REVIEW 即时核对→Challenge→裁决→进入下一点** 的闭环。
 >
 > **执行约定（必须）**：
-> - EXEC 在每个 T 完成后必须发出 `CHECKPOINT` 小结，并 **暂停等待** REVIEW 的 `OK_NEXT` 指令后才进入下一 T。
-> - REVIEW 在收到 checkpoint 后，立刻进行最小核对（见下文），必要时当场 Challenge；通过后回复 `OK_NEXT`。
+> - EXEC 在每个 T 完成后必须发出 `CHECKPOINT` 小结，并携带 `CHECKPOINT_ID=<run_id>/<round>/<Tn>/<seq>`。
+> - EXEC 必须写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`，并暂停等待。
+> - REVIEW 通过时必须回复：`OK_NEXT <CHECKPOINT_ID>`（必须带 id，避免乱序放行）。
+> - REVIEW 若收到旧 checkpoint（不是当前期望 id），必须回复：`STALE_CHECKPOINT_IGNORED <CHECKPOINT_ID>`。
 > - Round1/2 仍然保留：开头 `ANCHOR_UTC`，结尾 `find -newermt` 候选 session 列表。
 
 **REVIEW 的最小核对建议（按 T）**：
@@ -54,6 +56,8 @@
 - T4：立刻核对 `KR_LINK_OK`、`hostname/whoami` 与 `rc`。
 
 > 注意：证据归档 `_sessions/*.jsonl.gz` 仍由 REVIEW 最终统一做，但 Challenge 应当在 checkpoint 阶段完成。
+>
+> **异步队列保险丝**：消息平台可能延迟回放旧 checkpoint；REVIEW 不得仅凭“最新收到的一条消息”放行，必须按 `CHECKPOINT_ID` 序列核对。
 
 - 生成 `run_id=YYYYMMDD_HHMM`（重跑=新 run_id）。
 - subagent 只读 EXEC 文件执行 Round1+Round2。
@@ -62,6 +66,7 @@
   - subagent（执行者）模型 **由 Operator 指定**（派工时显式传入），评审官不得私自替换。
 - 产物写入：`Audit-Report/<YYYY-MM-DD>/`。
 - **并发分支策略（必须）**：若派多个执行者并发自评估，每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`（例如 `Self-audit/A`、`Self-audit/B`），避免 git push 冲突。
+- **单次 run 分支一致性（必须）**：同一个 `run_id` 的 EXEC 产物、REVIEW 报告、`_sessions` 归档必须落在同一 `SELF_AUDIT_BRANCH`；`main` 只接收最终合并结果。
 
 ---
 
@@ -88,19 +93,27 @@ OUT_DIR="Audit-Report/<YYYY-MM-DD>/_sessions"
 
 mkdir -p "$OUT_DIR"
 
-find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" -print0 \
-  | xargs -0 ls -1t \
-  | head -n 3 \
-  | while read -r f; do
-      bn="$(basename "$f")"
-      gzip -c "$f" > "$OUT_DIR/session_${RUN_ID}_${ROUND}__${bn}.jsonl.gz"
-      echo "ARCHIVED $f -> $OUT_DIR/session_${RUN_ID}_${ROUND}__${bn}.jsonl.gz"
-    done
+# round2 可选去重窗口：若已知 round1 最后 checkpoint 时间，可填入，避免两轮归档完全重叠
+ROUND1_END_UTC="<optional: round1 last checkpoint utc>"
+
+if [ "$ROUND" = "round2" ] && [ -n "${ROUND1_END_UTC:-}" ]; then
+  find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" \
+    -newermt "$ANCHOR_UTC" -newermt "$ROUND1_END_UTC" -print0 \
+    | xargs -0 ls -1t | head -n 3
+else
+  find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" -print0 \
+    | xargs -0 ls -1t | head -n 3
+fi | while read -r f; do
+  bn="$(basename "$f")"
+  gzip -c "$f" > "$OUT_DIR/session_${RUN_ID}_${ROUND}__${bn}.jsonl.gz"
+  echo "ARCHIVED $f -> $OUT_DIR/session_${RUN_ID}_${ROUND}__${bn}.jsonl.gz"
+done
 
 ls -lh "$OUT_DIR" | tail -n 20
 ```
 
 3) 将 `_sessions/` 归档与 REVIEW 报告纳入 git（必须同一 `SELF_AUDIT_BRANCH`，确保证据链可复现）：
+- 若仓库 `.gitignore` 忽略了 `_sessions/`，必须使用 `git add -f` 强制纳入归档证据。
 - **必须至少两次 commit**：
   1) `self-audit(review): archive sessions round<1|2>`（包含 `_sessions/` 新增归档）
   2) `self-audit(review): review round<1|2>`（包含 `review_openclaw_run...` 裁决报告）
