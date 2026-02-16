@@ -1,0 +1,6 @@
+# local artifacts
+tmp/
+memory/
+_sessions/
+*.jsonl
+*.jsonl.gz
