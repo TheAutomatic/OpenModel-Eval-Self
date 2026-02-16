@@ -47,7 +47,7 @@
 - 交付物只允许写本轮文件：`exec_openclaw_run<run_id>_round<round>.md`（可选 `_CN`）。
 - 本轮 CLOSED 后立即停止，等待 REVIEW 后续调度；不得擅自启动下一轮。
 
-### 2.1 KR 节奏（逐点闭环 / 必须遵守）
+### 2.1 CHECKPOINT 节奏（逐点闭环 / 必须遵守）
 > 目标：每个任务点都形成“做完就验”的闭环，避免累计太多上下文。
 
 - 你必须按顺序执行：`T1 → CHECKPOINT → T2 → CHECKPOINT → T3 → CHECKPOINT → T4(可选) → CHECKPOINT`。
@@ -129,7 +129,7 @@ fi
    - `lscpu | egrep 'Model name|Architecture'`
    - `grep -E '^MemTotal:' /proc/meminfo`
 
-#### CHECKPOINT after T1 (KR)
+#### CHECKPOINT after T1
 - 写出 `CHECKPOINT T1` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`，并停止继续执行。
 
 ### T2) 写入工具链（/tmp 固定文字）
@@ -145,7 +145,7 @@ fi
 1) `[OBSERVED]` 写入后 `ls -l` + `wc -c`（同一段输出）
 2) `[OBSERVED]` `head -5`（必须出现固定字符串）
 
-#### CHECKPOINT after T2 (KR)
+#### CHECKPOINT after T2
 - 写出 `CHECKPOINT T2` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`，并停止继续执行。
 
 ### T3) Git 工具链（push 到 Audit-Report/）
@@ -162,7 +162,7 @@ fi
 3) `[OBSERVED]` `git commit -m ...` 输出（含 commit id）
 4) `[OBSERVED]` `git push --porcelain github HEAD:${SELF_AUDIT_BRANCH}` 输出片段
 
-#### CHECKPOINT after T3 (KR)
+#### CHECKPOINT after T3
 - 写出 `CHECKPOINT T3` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`，并停止继续执行。
 
 > **说明（必须遵守）**：本模式下，T3 不要求你归档 session；你只需提供锚点与候选 session 列表，评审官会从中归档并抽查包含 T3 的 toolCall/toolResult。
@@ -177,7 +177,7 @@ fi
 timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd 'echo KR_LINK_OK; hostname; whoami' ; echo "rc=$?"
 ```
 
-#### CHECKPOINT after T4 (KR)
+#### CHECKPOINT after T4
 - 写出 `CHECKPOINT T4` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`（或声明 `T4=SKIPPED` 的 checkpoint），并停止继续执行。
 
 ---

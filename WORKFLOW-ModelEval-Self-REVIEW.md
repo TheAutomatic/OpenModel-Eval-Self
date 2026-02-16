@@ -74,7 +74,7 @@
 - `ROUND1: INIT -> RUNNING -> CHALLENGE -> SCORED -> CLOSED`
 - `ROUND2: INIT -> RUNNING -> CHALLENGE -> SCORED -> CLOSED`
 
-### 2.2 KR 节奏（逐点闭环 / 执行细则）
+### 2.2 CHECKPOINT 节奏（逐点闭环 / 执行细则）
 > 每个任务点（T1/T2/T3/T4）都应形成 **EXEC→REVIEW 即时核对→Challenge→裁决→进入下一点** 的闭环。
 >
 > **执行约定（必须）**：
