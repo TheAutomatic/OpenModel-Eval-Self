@@ -75,3 +75,27 @@ This repo is the **single source of truth** for audit artifacts; do not write ne
 2. 关键 run 双轨复核：`gpt-5.3-codex` + `gemini-3-pro-low`
 3. 当出现模型自述漂移时：以系统元数据为真相源，报告侧记录 `Model consistency`
 4. 无效样本（路径/仓库跑偏）继续执行“直接剔除，不入横评”规则
+
+---
+
+## 子孙代理异构模型能力探针（2026-02-17）
+
+> 目标：验证主会话 / 子代理 / 孙代理可使用不同模型（异构链路）
+
+### 探针结果表
+
+| 层级 | 目标模型 | 最终模型 | 状态 | 备注 |
+|---|---|---|---|---|
+| 主会话 | `openai-codex/gpt-5.3-codex` | `openai-codex/gpt-5.3-codex` | 基线 | 作为主控模型 |
+| 子代理 (L1) | （默认派生） | `nvidia-nim/z-ai/glm4.7` | ✅ SUCCESS | 子层已与主层异构 |
+| 孙代理 (L2) | `qwen-portal/coder-model` | `qwen-portal/coder-model` | ✅ SUCCESS | 工具探针 OK |
+| 孙代理 (L2) | `nvidia-nim/z-ai/glm4.7` | `nvidia-nim/z-ai/glm4.7` | ✅ SUCCESS | 工具探针 OK |
+| 孙代理 (L2) | `google-antigravity/gemini-3-flash` | `google-antigravity/gemini-3-flash` | ✅ SUCCESS | 工具探针 OK |
+| 孙代理 (L2) | `openai-codex/gpt-5.3-codex-spark4` | fallback to default | ❌ FAILED | `model not allowed` |
+| 孙代理 (L2) | `openai-codex/gpt-5.3-codex-spark` | N/A | ❌ FAILED | ChatGPT account 模式不支持该模型 |
+
+### 结论
+
+- 已证明 OpenClaw 支持 **主/子/孙异构模型** 执行。
+- 成功样本覆盖 Qwen / GLM / Gemini 三类提供方。
+- Codex Spark 失败属于**模型可用性与账号限制**，非子孙派生链路问题。
