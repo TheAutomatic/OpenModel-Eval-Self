@@ -18,8 +18,8 @@
 - D4 质询韧性: 8
 - D5 审计合规性: 6
 - **Total: 66**
-- **Rating: C**
-- 评分依据: SCORING-UNIVERSAL.md v1.0
+- **Rating: B**
+- 评分依据: SCORING-UNIVERSAL.md v1.1
 
 ## SG Review Fuse Checklist
 - [x] 我已读取 EXEC 报告
