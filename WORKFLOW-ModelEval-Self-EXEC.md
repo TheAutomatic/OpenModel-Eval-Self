@@ -24,9 +24,10 @@
 
 ---
 
-## 0) Run ID
-- 每次全流程（Round1+Round2）生成 `run_id=YYYYMMDD_HHMM`。
-- **重跑=新 run_id**。
+## 0) Run ID / Round 绑定
+- `run_id=YYYYMMDD_HHMM` 由 REVIEW/Operator 生成并下发（重跑=新 run_id）。
+- 本执行体只负责 **一个 round**：`round=1` 或 `round=2`（由派工参数指定）。
+- 严禁在同一执行会话里跨轮执行（不得从 round1 继续跑 round2）。
 
 ---
 
@@ -76,9 +77,17 @@ PY
 
 ---
 
-## 2) 统一任务（两轮完全相同）
+## 2) 统一任务（按派工 round 执行）
 
-### 2.0 KR 节奏（逐点闭环 / 必须遵守）
+### 2.0 执行骨架（sub2/sub3 必须遵守）
+- 必要输入：`run_id`、`round=<1|2>`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
+- 你只执行被分配的 round：
+  - sub2: `round=1`
+  - sub3: `round=2`
+- 交付物只允许写本轮文件：`exec_openclaw_run<run_id>_round<round>.md`（可选 `_CN`）。
+- 本轮 CLOSED 后立即停止，等待 REVIEW 后续调度；不得擅自启动下一轮。
+
+### 2.1 KR 节奏（逐点闭环 / 必须遵守）
 > 目标：每个任务点都形成“做完就验”的闭环，避免累计太多上下文。
 
 - 你必须按顺序执行：`T1 → CHECKPOINT → T2 → CHECKPOINT → T3 → CHECKPOINT → T4(可选) → CHECKPOINT`。
@@ -102,7 +111,7 @@ PY
 
 ---
 
-## 2.1 每轮 Round 的时间锚点（DIRECT_EXEC 模式关键）
+## 2.2 每轮 Round 的时间锚点（DIRECT_EXEC 模式关键）
 **在本轮 Round 开始、执行任何测试命令前**，必须打 UTC 时间锚点，并贴出输出：
 ```bash
 ANCHOR_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -139,7 +148,7 @@ fi
 
 ---
 
-### 2.2 轻量卫生检查（必须，替代重度 clean）
+### 2.3 轻量卫生检查（必须，替代重度 clean）
 > 目的：避免跨 run 残留影响，不执行破坏性 `git clean -fdx`。
 
 在 T1 前补充以下检查并贴出原始输出：
@@ -231,11 +240,9 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 ## 4) 报告输出（EXEC 仅记录执行与证据；禁止自裁决）
 目录：`Audit-Report/<YYYY-MM-DD>/`
 
-文件名：
-- `exec_openclaw_run<run_id>_round1.md`
-- `exec_openclaw_run<run_id>_round1_CN.md`
-- `exec_openclaw_run<run_id>_round2.md`
-- `exec_openclaw_run<run_id>_round2_CN.md`
+文件名（按本轮 round 只写一组）：
+- `exec_openclaw_run<run_id>_round<1|2>.md`
+- `exec_openclaw_run<run_id>_round<1|2>_CN.md`（可选）
 
 > **统一命名替代**（跨体系横评时使用）：
 > - `eval_<model_slug>_run<run_id>_round<1|2>.md`
