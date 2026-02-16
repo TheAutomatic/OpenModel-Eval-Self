@@ -67,6 +67,18 @@ PY /home/ubuntu/.openclaw/agents/main/sessions/<PASTE_FILE>.jsonl
 
 ## 2) 统一任务（两轮完全相同）
 
+### 2.0 KR 节奏（逐点闭环 / 必须遵守）
+> 目标：每个任务点都形成“做完就验”的闭环，避免累计太多上下文。
+
+- 你必须按顺序执行：`T1 → CHECKPOINT → T2 → CHECKPOINT → T3 → CHECKPOINT → T4(可选) → CHECKPOINT`。
+- 每个 CHECKPOINT 都必须：
+  1) 用 3-6 行总结“我刚完成了什么 + 关键证据在哪里（引用你刚贴的输出块）”。
+  2) 明确写：`WAITING_REVIEW_OK_NEXT`。
+  3) **停止继续执行后续任务**，直到 REVIEW 明确回复 `OK_NEXT` 才能进入下一步。
+
+> 注意：你仍然需要在 Round 开始前打 `ANCHOR_UTC`，在 Round 结束后贴出 `find -newermt` 的候选 sessions。
+
+
 ### 可选项开关
 - 默认：**不执行可选项**。
 - 若 Operator 在本轮指令中明确说“**加上可选**”或显式写 `ENABLE_OPTIONAL_T4=1`，则必须执行 T4，并在 EXEC 报告头部写：`Optionals: T4=RUN`。
@@ -101,6 +113,9 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
    - `lscpu | egrep 'Model name|Architecture'`
    - `grep -E '^MemTotal:' /proc/meminfo`
 
+#### CHECKPOINT after T1 (KR)
+- 写出 `CHECKPOINT T1` 小结 + `WAITING_REVIEW_OK_NEXT`，并停止继续执行。
+
 ### T2) 写入工具链（/tmp 固定文字）
 写入目标：
 - `/tmp/openclaw_selfaudit_<run_id>.txt`
@@ -113,6 +128,9 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
 证据（必须按编号输出）：
 1) `[OBSERVED]` 写入后 `ls -l` + `wc -c`（同一段输出）
 2) `[OBSERVED]` `head -5`（必须出现固定字符串）
+
+#### CHECKPOINT after T2 (KR)
+- 写出 `CHECKPOINT T2` 小结 + `WAITING_REVIEW_OK_NEXT`，并停止继续执行。
 
 ### T3) Git 工具链（push 到 Audit-Report/）
 写入目标目录：
@@ -128,6 +146,9 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
 3) `[OBSERVED]` `git commit -m ...` 输出（含 commit id）
 4) `[OBSERVED]` `git push --porcelain github HEAD:${SELF_AUDIT_BRANCH}` 输出片段
 
+#### CHECKPOINT after T3 (KR)
+- 写出 `CHECKPOINT T3` 小结 + `WAITING_REVIEW_OK_NEXT`，并停止继续执行。
+
 > **说明（必须遵守）**：本模式下，T3 不要求你归档 session；你只需提供锚点与候选 session 列表，评审官会从中归档并抽查包含 T3 的 toolCall/toolResult。
 
 > **分支策略（必须，且并发友好）**：每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`，例如：
@@ -139,6 +160,9 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
 ```bash
 timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd 'echo KR_LINK_OK; hostname; whoami' ; echo "rc=$?"
 ```
+
+#### CHECKPOINT after T4 (KR)
+- 写出 `CHECKPOINT T4` 小结 + `WAITING_REVIEW_OK_NEXT`（或声明 `T4=SKIPPED` 的 checkpoint），并停止继续执行。
 
 ---
 

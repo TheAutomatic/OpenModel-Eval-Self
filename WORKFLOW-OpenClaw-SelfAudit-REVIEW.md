@@ -11,7 +11,7 @@
 ---
 
 ## 0) 你要读的文件
-- **执行版（EXEC，subagent 只读）**：`projects/OpenModel-Eval-Self/WORKFLOW-OpenClaw-SelfAudit-EXEC.md`
+- **执行版（EXEC，subagent 只读）**：`WORKFLOW-OpenClaw-SelfAudit-EXEC.md`
 - **产物目录**：`Audit-Report/`
 
 ### 0.1 你将看到的产物文件名
@@ -38,12 +38,29 @@
 ---
 
 ## 2) 如何派 subagent
+
+### 2.1 KR 节奏（逐点闭环 / 推荐执行方式）
+> 目标：避免“先全跑完再审”拉长战线。每个任务点（T1/T2/T3/T4）都应当形成 **EXEC→REVIEW 即时核对→Challenge→裁决→进入下一点** 的闭环。
+>
+> **执行约定（必须）**：
+> - EXEC 在每个 T 完成后必须发出 `CHECKPOINT` 小结，并 **暂停等待** REVIEW 的 `OK_NEXT` 指令后才进入下一 T。
+> - REVIEW 在收到 checkpoint 后，立刻进行最小核对（见下文），必要时当场 Challenge；通过后回复 `OK_NEXT`。
+> - Round1/2 仍然保留：开头 `ANCHOR_UTC`，结尾 `find -newermt` 候选 session 列表。
+
+**REVIEW 的最小核对建议（按 T）**：
+- T1：核对输出是否包含真实命令回显/返回码；必要时让 EXEC 重跑 `date -u`。
+- T2：让 EXEC 立刻 `cat /tmp/openclaw_selfaudit_<run_id>.txt | head` 复核固定字符串。
+- T3：立刻核对分支 push 是否成功（让 EXEC贴 `git rev-parse HEAD` + push 输出）；并记录为“后续归档自检必须命中 git commit/push”。
+- T4：立刻核对 `KR_LINK_OK`、`hostname/whoami` 与 `rc`。
+
+> 注意：证据归档 `_sessions/*.jsonl.gz` 仍由 REVIEW 最终统一做，但 Challenge 应当在 checkpoint 阶段完成。
+
 - 生成 `run_id=YYYYMMDD_HHMM`（重跑=新 run_id）。
 - subagent 只读 EXEC 文件执行 Round1+Round2。
 - **模型策略（必须）**：
   - 主会话（评审官）使用“当前对话正在用的模型”，不额外指定。
   - subagent（执行者）模型 **由 Operator 指定**（派工时显式传入），评审官不得私自替换。
-- 产物写入：`memory/self-audit/<YYYY-MM-DD>/`。
+- 产物写入：`Audit-Report/<YYYY-MM-DD>/`。
 - **并发分支策略（必须）**：若派多个执行者并发自评估，每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`（例如 `Self-audit/A`、`Self-audit/B`），避免 git push 冲突。
 
 ---
@@ -166,8 +183,8 @@ PY
 你必须为每一轮输出一份 REVIEW 报告（Round1 / Round2 各一份），并给出最终裁决。
 
 ### 5.1 REVIEW 报告文件名
-- `memory/self-audit/<YYYY-MM-DD>/review_openclaw_run<run_id>_round1.md`
-- `memory/self-audit/<YYYY-MM-DD>/review_openclaw_run<run_id>_round2.md`
+- `Audit-Report/<YYYY-MM-DD>/review_openclaw_run<run_id>_round1.md`
+- `Audit-Report/<YYYY-MM-DD>/review_openclaw_run<run_id>_round2.md`
 
 ### 5.2 TL;DR 模板
 ```markdown
