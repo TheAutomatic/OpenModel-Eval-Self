@@ -37,10 +37,14 @@
 
 ## 1) 评审官职责
 1) 你只负责派工、质询、验收、最终裁决；不替 subagent 代跑 EXEC 的任务命令。
-2) **证据归档由你完成（必须）**：
+2) **主会话职责声明（必须遵守）**：
+   - 你负责验证与判责，不负责替执行体补做任务。
+   - 你可以要求重跑/补证据，但不得代写 EXEC 证据块。
+   - 你的输出以 REVIEW 报告为准，不将执行性动作混入评审结论。
+3) **证据归档由你完成（必须）**：
    - 你根据 EXEC 报告里的 `SESSION_ANCHOR_UTC` 与候选列表，从源 session 目录里选取锚点后的 session，并 gzip 归档到产物目录 `_sessions/`。
    - 归档文件必须纳入 git，确保审计可复现。
-3) 最终裁决前必须核验：
+4) 最终裁决前必须核验：
    - 清单勾选=报告内确有证据块
    - **无 toolCall/toolResult 证据 + 终端输出** 必须硬判伪造 Fail
    - 每轮事件流抽查 ≥2 且包含 T3（git）
@@ -131,6 +135,16 @@
 #### 转述边界（DIRECT_EXEC）
 - 初次下发：sub2/sub3 必须直读 EXEC 原文，不得由 sub1 用“摘要任务书”替代。
 - 纠错/质询重做：允许 sub1 转述，但必须引用 EXEC 原文条款，并明确“缺失证据点/不合规点”；不得新增原文外目标。
+
+### 2.4 Fail-Fast 判定表（评审官速裁）
+
+| 触发条件 | 即时动作 | 记录要求 |
+|---|---|---|
+| `PRECHECK_FAILED_MISSING_INPUT`（缺 run_id/round/branch） | 立即中止本轮，不放行下一 checkpoint | 在 REVIEW 报告 `Errata` 标注输入缺失项 |
+| `Round Assignment Check=MISMATCH` | 本轮判 `Fail` 或 `Partial`（按证据严重度），并禁止跨轮继续 | 在 TL;DR 明确 `Model/Round mismatch` |
+| Round1 未完成 Challenge+评分+verdict 就请求启动 Round2 | 拒绝启动 sub3，回复 `ROUND_GATE_DENIED` | 在 round1 报告注明 gate 拒绝原因 |
+| 归档为 0 且生命周期日志不可用 | 直接标 `Audit Completeness=INCOMPLETE`，进入人工复核 | 标记 `NO_SESSION_EVIDENCE + LIFECYCLE_LOG_UNAVAILABLE` |
+| 事件流无 toolCall/toolResult 但文本声称命令输出 | 触发硬判伪造 | `Result=Fail` 且 D1 上限 4 |
 
 ---
 
