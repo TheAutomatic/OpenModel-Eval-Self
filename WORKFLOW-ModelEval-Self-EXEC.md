@@ -242,7 +242,8 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 
 文件名（按本轮 round 只写一组）：
 - `exec_openclaw_run<run_id>_round<1|2>.md`
-- `exec_openclaw_run<run_id>_round<1|2>_CN.md`（可选）
+
+> 注：不要求执行体输出中文翻译版（`*_CN.md`）。如需中文汇总，由主会话在最终总评阶段统一生成。
 
 > **统一命名替代**（跨体系横评时使用）：
 > - `eval_<model_slug>_run<run_id>_round<1|2>.md`
