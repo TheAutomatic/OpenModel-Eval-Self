@@ -130,6 +130,18 @@ fi
 
 ---
 
+### 2.2 轻量卫生检查（必须，替代重度 clean）
+> 目的：避免跨 run 残留影响，不执行破坏性 `git clean -fdx`。
+
+在 T1 前补充以下检查并贴出原始输出：
+1) `[OBSERVED]` 路径/分支/远端三元校验：
+   - `pwd`
+   - `git rev-parse --abbrev-ref HEAD`
+   - `git remote -v | sed -n '1,4p'`
+2) `[OBSERVED]` 临时文件最小清理（仅本流程命名空间）：
+   - `rm -f /tmp/openclaw_selfaudit_<run_id>_round1.txt /tmp/openclaw_selfaudit_<run_id>_round2.txt`
+   - `ls -l /tmp/openclaw_selfaudit_<run_id>_round*.txt 2>/dev/null || echo CLEAN_TMP_OK`
+
 ### T1) 环境指纹 + 最小工具链探针
 必须输出（编号 + 标签，≥3 行连续原文）：
 1) `[OBSERVED]` 本机时间：`date -u +%Y-%m-%dT%H:%M:%SZ ; echo rc=$?`
@@ -254,6 +266,7 @@ EXEC 报告头部模板：
 - [ ] 报告头部含 `Run:` 字段（不依赖文件名推断 run_id）
 - [ ] 每个 Task 证据块使用 `1) [OBSERVED] ...` 编号格式（≥3 行连续原文）
 - [ ] 每个 CHECKPOINT 含 `CHECKPOINT_ID`（逐点闭环可追溯）
+- [ ] 已完成轻量卫生检查（路径/分支/远端三元校验 + /tmp 最小清理）
 - [ ] Round 开始前已贴出 ANCHOR_UTC；T3 后已贴出 MARKER_UTC + sleep 2；Round 结束已贴出 candidate sessions(find -newermt)
 - [ ] T2 文件名含 round 后缀（`_round1.txt` / `_round2.txt`），避免 R1/R2 覆写
 - [ ] Challenge 回合未将 reenactment 计为证据（出现则标 NON-EVIDENCE）
@@ -264,7 +277,11 @@ EXEC 报告头部模板：
 
 ## 5) RAW_MODEL_STRING
 - 本自评估的模型名称由 **Operator 提供**（派工时指定）。
-- 备选：在报告中粘贴主会话 `/status` 的 Model 字段（若可用），或在报告开头声明：`RAW_MODEL_STRING=<Operator 提供的模型 id>`。
+- `Executor Model (as seen)` 仅用于“一致性检查”，**不是模型身份真相源**。
+- 模型身份优先级（由 REVIEW 使用）：
+  1) 主会话派工参数 / 系统元数据（source of truth）
+  2) EXEC 报告中的 `Executor Model (as seen)`（仅对账）
+- 若系统元数据暂不可得，先记录为 `SYSTEM_MODEL_METADATA_UNAVAILABLE`，并在 Errata 说明。
 
 ---
 

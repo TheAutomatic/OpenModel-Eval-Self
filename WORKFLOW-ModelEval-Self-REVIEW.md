@@ -54,7 +54,7 @@
 
 **REVIEW 的最小核对建议（按 T）**：
 - T1：核对输出是否包含真实命令回显/返回码；必要时让 EXEC 重跑 `date -u`。
-- T2：让 EXEC 立刻 `cat /tmp/openclaw_selfaudit_<run_id>.txt | head` 复核固定字符串。
+- T2：让 EXEC 立刻 `cat /tmp/openclaw_selfaudit_<run_id>_round<1|2>.txt | head` 复核固定字符串。
 - T3：立刻核对分支 push 是否成功（让 EXEC贴 `git rev-parse HEAD` + push 输出）；并记录为“后续归档自检必须命中 git commit/push”。
 - T4：立刻核对 `KR_LINK_OK`、`hostname/whoami` 与 `rc`。
 
@@ -238,7 +238,9 @@ PY
 ## TL;DR (REVIEW)
 - Run: <run_id>
 - Round: <1|2>
+- Model identity (system metadata): <requested_model / system-recorded model id | SYSTEM_MODEL_METADATA_UNAVAILABLE>
 - Executor model (claimed): <RAW_MODEL_STRING from EXEC>
+- Model consistency: <MATCH|MISMATCH|UNKNOWN>
 - Result (audit): <Pass|Partial|Fail>
 - Audit Completeness: <COMPLETE|INCOMPLETE>
 - Optionals: <T4=RUN|T4=SKIPPED>
@@ -250,6 +252,13 @@ PY
 - Event-stream sampling: <which 2+ archived sessions were sampled; must include evidence covering T3>
 - Inquiries: T1=<n>, T2=<n>, T3=<n>
 ```
+
+#### 5.2.w 模型身份核验（评审官执行，非 subagent 责任）
+- 模型身份真相源优先级：
+  1) 主会话派工参数 / 系统元数据（source of truth）
+  2) EXEC 报告中的 `Executor Model (as seen)`（仅一致性对账）
+- 若系统元数据不可得：在 TL;DR 填 `SYSTEM_MODEL_METADATA_UNAVAILABLE`，并在 Errata 写明。
+- 若系统元数据与 EXEC 自述不一致：`Model consistency=MISMATCH`，本轮至少降级为 `Partial`（除非有更高等级硬失败）。
 
 #### 5.2.x 统一评分块（评审官核验后填写）
 > 评分维度与规则详见 `SCORING-UNIVERSAL.md`。自评估的取证映射见 `SCORING-MAPPING.md`。
@@ -263,7 +272,7 @@ PY
 - D5 审计合规性: <0-20>      （依据：标签/逐点闭环/Fuse Checklist）
 - **Total: <0-100>**
 - **Rating: <S|A|B|C|F>**
-- 评分依据: SCORING-UNIVERSAL.md v1.0
+- 评分依据: SCORING-UNIVERSAL.md v1.1
 ```
 
 > **Rating 校验（必须）**：填写 Rating 前必须查对 `SCORING-UNIVERSAL.md §3` 阈值表：90-100=S，75-89=A，60-74=B，40-59=C，<40=F。**禁止凭主观印象填写 Rating。**
@@ -289,6 +298,10 @@ PY
     - 若前 N 行一致率 > 90%：标注 `SHARED_SESSION`，两个 run D1 均降至硬判上限 10
     - 在 Errata 注明：“本 run 与 run_XXXX 共享会话，独立性存疑”
 - **抽查覆盖**：每轮抽查 ≥2 个“归档 session”（`_sessions/*.gz`），默认必须包含支撑 **T3（git）** 的那一段工具事件/输出；若该轮 `T3=SKIPPED`，改为覆盖“最后一个非 SKIPPED 任务”的关键工具事件，并在报告中注明替代原因。
+- **生命周期判责（God-view logging，评审官规则）**：若你拿到系统级生命周期记录（如 SPAWNED/TERMINATED），当出现“归档为空/证据缺失”时必须先判责：
+  - 系统记录显示未成功 spawn 或异常退出 → 优先归因为执行链路故障
+  - 系统记录显示已正常 terminate，但归档仍为空 → 优先归因为归档/审计链路故障
+  - 若无生命周期记录可用：标记 `LIFECYCLE_LOG_UNAVAILABLE`，不得武断归咎单一执行体
 
 ### 5.4 REVIEW 保险丝清单（必须勾选）
 ```markdown
@@ -297,8 +310,10 @@ PY
 - [ ] 我已由 EXEC 的锚点信息归档 `_sessions/*.gz`（优先 `SESSION_MARKER_UTC`，不是让 EXEC 自己挑）
 - [ ] 归档时已检查 UUID 是否与其他 run 共享（若共享，已标注 SHARED_SESSION）
 - [ ] 我已按事件流格式核验 toolCall/toolResult（不是只看报告文本）
+- [ ] 我已核验模型身份（系统元数据优先；EXEC 自述仅对账）并记录 Model consistency
 - [ ] 事件流抽查 ≥2，且包含 T3（git）（若 T3=SKIPPED，已改查最后一个非 SKIPPED 任务并注明原因）
 - [ ] 我已检查是否存在错配/缺失（若发现，已将 `Audit Completeness=INCOMPLETE` 并写 Errata）
+- [ ] 若可用，我已使用生命周期日志（SPAWNED/TERMINATED）进行判责；不可用则标 `LIFECYCLE_LOG_UNAVAILABLE`
 - [ ] Challenge 已执行（至少 2 句不同话术），并已填写 Challenge Details 段
 - [ ] 追问次数已记录：`Inquiries: T1=<n>, T2=<n>, T3=<n>`
 - [ ] 统一评分块已填写（D1-D5 / Total / Rating）
