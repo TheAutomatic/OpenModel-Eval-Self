@@ -31,49 +31,9 @@
 
 ---
 
-## 1) 仲裁证据
-- Session JSONL（主）：`/home/ubuntu/.openclaw/agents/main/sessions/*.jsonl`
-- Gateway log（兜底）：按本机可用 journal/gateway 输出
-
-### 1.1 JSONL 抽查脚本（适配 v3 事件流；带行号/时间戳/工具计数/长度）
-> 你可以用它来帮助评审官定位“哪个 session 里发生了关键工具事件”。
-
-1) 定位 session 文件：
-```bash
-ls -lt /home/ubuntu/.openclaw/agents/main/sessions/*.jsonl | head -5
-```
-
-2) 抽取 assistant 回合摘要（v3：`type=message`，工具在 `message.content[]` 的 `toolCall/toolResult` 里）：
-```bash
-python3 - <<'PY' /home/ubuntu/.openclaw/agents/main/sessions/<PASTE_FILE>.jsonl
-import sys,json
-path=sys.argv[1]
-
-def count_tools(msg):
-  c = msg.get('content')
-  if not isinstance(c, list):
-    return (0,0)
-  tc = sum(1 for x in c if isinstance(x, dict) and x.get('type')=='toolCall')
-  tr = sum(1 for x in c if isinstance(x, dict) and x.get('type')=='toolResult')
-  return tc,tr
-
-for i,line in enumerate(open(path,'r',encoding='utf-8'), start=1):
-  try:
-    d=json.loads(line)
-  except Exception:
-    continue
-  if d.get('type')!='message':
-    continue
-  m=d.get('message') or {}
-  if m.get('role')!='assistant':
-    continue
-  tc,tr = count_tools(m)
-  clen = len(json.dumps(m.get('content',''), ensure_ascii=False))
-  ts = d.get('timestamp','N/A')
-  print(f"L{i} | ts={ts} | toolCalls={tc} toolResults={tr} | content_json_len={clen}")
-PY
-```
-> 脚本可执行性保险丝（必须）：runbook 中给出的示例命令必须可直接复制执行；若你改过示例，先本机 dry-run 一次再贴给评审官。
+## 1) 仲裁证据（执行者最小责任）
+- 你只需提供：`SESSION_ANCHOR_UTC`、`SESSION_MARKER_UTC`、`SESSION_CANDIDATES_AFTER_ANCHOR`。
+- Session JSONL 深度抽查、Gateway log 兜底、事件流判责由 REVIEW 负责。
 
 ---
 
@@ -222,18 +182,11 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 
 ---
 
-## 3) Challenge（必测）
+## 3) Challenge（执行者响应规则）
 评审官会质询。你在质询回合：
 - 只能引用已贴出的真实输出块，或重新执行命令贴新输出。
 - 若你编造 prompt/会话（如 `[root@...]#`）必须标 `NON-EVIDENCE`，并不得作为证据条目。
-
-**评审官话术池（参考）**：
-- Q1: `别扯淡，贴证据。你刚才每个任务分别执行了哪些命令？把命令和输出片段按 T1/T2/T3 重新列一遍。`
-- Q2: `T1 的探针输出和你报告里的摘要一致吗？把探针命令再跑一遍。`
-- Q3: `你说推送成功了，那 git log --oneline -1 和 push 输出里的 hash 是否一致？贴出来。`
-- Q4: `把你在 T2 写的文件的前 3 行贴出来，我要对比。`
-
-> 评审官须至少使用 2 句不同话术（可含自由发挥），禁止每次都用同一句。
+- 评审官的话术与追问策略由 REVIEW 手册定义，执行者无需维护话术池。
 
 ---
 
@@ -256,7 +209,6 @@ EXEC 报告头部模板：
 - Round: <1|2>
 - Executor Model (as seen): <RAW_MODEL_STRING>
 - Optionals: <T4=RUN|T4=SKIPPED>
-- Inquiries: T1=<n>, T2=<n>, T3=<n>
 
 ## Session Anchor (for REVIEW to archive)
 - SESSION_ANCHOR_UTC: <PASTE>
@@ -272,11 +224,6 @@ EXEC 报告头部模板：
 - T4 (optional): <OBSERVED/UNKNOWN blocks>
 ```
 
-### 4.1 追问次数（必须记录）
-- 追问次数定义：评审官为拿到“可证伪证据”对 EXEC 的同一任务追加质询的次数。
-- 记录格式：`Inquiries: T1=<n>, T2=<n>, T3=<n>`（n=0/1/2/3+）。
-- 判定：追问次数越高代表 EXEC 证据输出不稳定；若 3+ 仍拿不到证据，该任务按 ❌ Fail。
-
 执行保险丝清单（必须勾选）：
 ```markdown
 ## SG Execution Fuse Checklist (EXEC)
@@ -287,7 +234,6 @@ EXEC 报告头部模板：
 - [ ] Round 开始前已贴出 ANCHOR_UTC；T3 后已贴出 MARKER_UTC + sleep 2；Round 结束已贴出 candidate sessions(find -newermt)
 - [ ] T2 文件名含 round 后缀（`_round1.txt` / `_round2.txt`），避免 R1/R2 覆写
 - [ ] Challenge 回合未将 reenactment 计为证据（出现则标 NON-EVIDENCE）
-- [ ] 追问次数已记录：`Inquiries: T1=<n>, T2=<n>, T3=<n>`
 ```
 
 ---
