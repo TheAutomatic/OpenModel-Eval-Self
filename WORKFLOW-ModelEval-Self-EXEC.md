@@ -54,6 +54,14 @@
 4) `REPORT`：只写本轮 exec 报告并提交锚点/候选会话。
 5) `STOP`：等待 REVIEW，不跨轮、不补跑下一轮。
 
+**PRECHECK 最小模板（建议原样执行）**：
+```bash
+echo "RUN_ID=${run_id:-<missing>} ROUND=${round:-<missing>} BRANCH=${SELF_AUDIT_BRANCH:-<missing>}"
+pwd
+git rev-parse --abbrev-ref HEAD
+```
+若任一关键参数缺失（`run_id/round/SELF_AUDIT_BRANCH`），立即回报 `PRECHECK_FAILED_MISSING_INPUT` 并停止。
+
 **禁止行为（必须）**：
 - 不得在同一会话里从 round1 继续跑 round2。
 - 不得替 REVIEW 归档 `_sessions/*.gz` 或给自己打分。
@@ -183,7 +191,7 @@ fi
 > - `Self-audit/A`
 > - `Self-audit/B`
 
-### T4)（可选）SSH 到 KR 连通性探针（so.3399.work.gd:23681）
+### T4)（可选）SSH 远端连通性探针（so.3399.work.gd:23681）
 仅当 Operator 明确说“加上可选”或 `ENABLE_OPTIONAL_T4=1` 时执行：
 ```bash
 timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd 'echo KR_LINK_OK; hostname; whoami' ; echo "rc=$?"
@@ -219,6 +227,7 @@ EXEC 报告头部模板：
 ## EXEC REPORT
 - Run: <run_id>
 - Round: <round>
+- Round Assignment Check: <MATCH|MISMATCH>  # 对照派工参数中的 round
 - Executor Model (as seen): <RAW_MODEL_STRING>
 - Optionals: <T4=RUN|T4=SKIPPED>
 
@@ -240,11 +249,13 @@ EXEC 报告头部模板：
 ```markdown
 ## SG Execution Fuse Checklist (EXEC)
 - [ ] 报告头部含 `Run:` 字段（不依赖文件名推断 run_id）
+- [ ] `Round Assignment Check` 已填写，且与派工 round 一致（MISMATCH 则必须在正文说明并停止跨轮）
 - [ ] 每个 Task 证据块使用 `1) [OBSERVED] ...` 编号格式（≥3 行连续原文）
 - [ ] 每个 CHECKPOINT 含 `CHECKPOINT_ID`（逐点闭环可追溯）
 - [ ] 已完成轻量卫生检查（路径/分支/远端三元校验 + /tmp 最小清理）
 - [ ] Round 开始前已贴出 ANCHOR_UTC；T3 后已贴出 MARKER_UTC + sleep 2；Round 结束已贴出 candidate sessions(find -newermt)
 - [ ] T2 文件名含 round 后缀（`_round1.txt` / `_round2.txt`），避免 R1/R2 覆写
+- [ ] 本轮仅产出一个 exec 报告文件（未越权写入另一轮文件）
 - [ ] Challenge 回合未将 reenactment 计为证据（出现则标 NON-EVIDENCE）
 ```
 
