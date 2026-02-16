@@ -1,4 +1,4 @@
-# WORKFLOW — ModelEval-Self（EXEC / subagent 执行版 / KR 模式A）
+# WORKFLOW — ModelEval-Self（EXEC / subagent 执行版 / DIRECT_EXEC 本地子孙模式）
 
 > **Role**：SG_EXECUTOR（subagent / 执行者）
 >
@@ -11,7 +11,8 @@
 >
 > 本文件是 OpenClaw 自评估的执行版：你负责“执行 + 如实作答 + 提供可复核线索”。
 > 一句话边界：你在 **DIRECT_EXEC** 模式下执行本轮——你负责直读 EXEC 原文并产出证据；评分与归档由 REVIEW 负责。
-> **注意：按 KR 模式A，本流程的“证据归档（_sessions/*.gz）与最终抽查”由主会话评审官（REVIEW）完成**，执行者不得自选会话打包充当审计闭环。
+> **注意：按 DIRECT_EXEC 本地子孙模式，本流程的“证据归档（_sessions/*.gz）与最终抽查”由主会话评审官（REVIEW）完成**，执行者不得自选会话打包充当审计闭环。
+> **术语清理**：本文件不再使用“KR 模式A”作为执行语义标签；A/B 模式定义见独立规范文件。
 >
 > - 评审官手册：`WORKFLOW-ModelEval-Self-REVIEW.md`
 > - **评分标准**：`SCORING-UNIVERSAL.md`（通用层）+ `SCORING-MAPPING.md`（自评估映射）
@@ -101,7 +102,7 @@ PY
 
 ---
 
-## 2.1 每轮 Round 的时间锚点（KR 模式A 的关键）
+## 2.1 每轮 Round 的时间锚点（DIRECT_EXEC 模式关键）
 **在本轮 Round 开始、执行任何测试命令前**，必须打 UTC 时间锚点，并贴出输出：
 ```bash
 ANCHOR_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
