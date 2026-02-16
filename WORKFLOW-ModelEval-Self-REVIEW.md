@@ -99,6 +99,7 @@
   - 主会话（评审官）使用当前对话模型，不额外指定。
   - subagent（执行者）模型由 Operator 派工时显式指定。
 - 产物写入：`Audit-Report/<YYYY-MM-DD>/`。
+- **并发分支策略（必须）**：若派多个执行者并发自评估，每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`（例如 `Self-audit/A`、`Self-audit/B`），避免 git push 冲突。
 - **单次 run 分支一致性（必须）**：同一个 `run_id` 的 EXEC 产物、REVIEW 报告、`_sessions` 归档必须落在同一 `SELF_AUDIT_BRANCH`；`main` 只接收最终合并结果。
 
 ### 2.3 sub1 执行细化（Round1→Round2）
