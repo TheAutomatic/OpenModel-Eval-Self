@@ -6,7 +6,7 @@
 >
 > **KR 模式A**：
 > - **EXEC（subagent）负责：执行 + 如实作答 + 提供“时间锚点与候选 session 列表”**
-> - **REVIEW（主会话）负责：发起质询、监督、归档证据（_sessions/*.jsonl.gz）、抽查事件流、最终裁决**
+> - **REVIEW（主会话）负责：发起质询、监督、归档证据（_sessions/*.gz）、抽查事件流、最终裁决**
 
 ---
 
@@ -55,7 +55,7 @@
 - T3：立刻核对分支 push 是否成功（让 EXEC贴 `git rev-parse HEAD` + push 输出）；并记录为“后续归档自检必须命中 git commit/push”。
 - T4：立刻核对 `KR_LINK_OK`、`hostname/whoami` 与 `rc`。
 
-> 注意：证据归档 `_sessions/*.jsonl.gz` 仍由 REVIEW 最终统一做，但 Challenge 应当在 checkpoint 阶段完成。
+> 注意：证据归档 `_sessions/*.gz` 仍由 REVIEW 最终统一做，但 Challenge 应当在 checkpoint 阶段完成。
 >
 > **异步队列保险丝**：消息平台可能延迟回放旧 checkpoint；REVIEW 不得仅凭“最新收到的一条消息”放行，必须按 `CHECKPOINT_ID` 序列核对。
 
@@ -76,7 +76,8 @@
 - Session 根目录：`/home/ubuntu/.openclaw/agents/main/sessions/`
 - 产物目录：`Audit-Report/<YYYY-MM-DD>/_sessions/`
 - 归档文件名（必须保留来源文件名以便审计复现）：
-  - `session_<run_id>_round<1|2>__<SOURCE_BASENAME>.jsonl.gz`
+  - `session_<run_id>_round<1|2>__<SOURCE_BASENAME>.gz`
+  - 说明：`<SOURCE_BASENAME>` 已经是 `*.jsonl`，额外只追加 `.gz`，避免出现 `jsonl.jsonl.gz`。
 
 ### 3.1 归档步骤
 1) 从 EXEC 报告中读取：
@@ -105,8 +106,8 @@ else
     | xargs -0 ls -1t | head -n 3
 fi | while read -r f; do
   bn="$(basename "$f")"
-  gzip -c "$f" > "$OUT_DIR/session_${RUN_ID}_${ROUND}__${bn}.jsonl.gz"
-  echo "ARCHIVED $f -> $OUT_DIR/session_${RUN_ID}_${ROUND}__${bn}.jsonl.gz"
+  gzip -c "$f" > "$OUT_DIR/session_${RUN_ID}_${ROUND}__${bn}.gz"
+  echo "ARCHIVED $f -> $OUT_DIR/session_${RUN_ID}_${ROUND}__${bn}.gz"
 done
 
 ls -lh "$OUT_DIR" | tail -n 20
@@ -119,20 +120,20 @@ ls -lh "$OUT_DIR" | tail -n 20
   2) `self-audit(review): review round<1|2>`（包含 `review_openclaw_run...` 裁决报告）
 
 ### 3.2 归档后自检（T3 保险丝）
-> 目的：确保你归档的 `_sessions/*.jsonl.gz` **确实包含** 本轮关键工具事件（尤其是 T3 的 git commit/push），避免“归档太早”。
+> 目的：确保你归档的 `_sessions/*.gz` **确实包含** 本轮关键工具事件（尤其是 T3 的 git commit/push），避免“归档太早”。
 
-对每个刚归档的 `session_<run_id>_roundX__*.jsonl.gz`，执行以下任一自检（目标：确认**归档里包含 T3 的 commit + push 工具事件**；实现允许多种）：
+对每个刚归档的 `session_<run_id>_roundX__*.gz`，执行以下任一自检（目标：确认**归档里包含 T3 的 commit + push 工具事件**；实现允许多种）：
 
 **自检方案 1（快速 grep / 更鲁棒）**：
 ```bash
 # 目标：能在归档中找到 git commit 与 git push 相关的命令文本（不依赖精确字符串）
 # commit
-gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz \
+gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.gz \
   | grep -nE "git commit( |$)" \
   | head
 
 # push（允许有无 --porcelain）
-gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz \
+gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.gz \
   | grep -nE "git push( |$)" \
   | head
 ```
@@ -161,7 +162,7 @@ def tool_exec_cmds(m):
       if isinstance(cmd,str) and cmd:
         yield cmd
 
-paths=sorted(glob.glob('Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz'))
+paths=sorted(glob.glob('Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.gz'))
 seen_commit=False
 seen_push=False
 
@@ -221,14 +222,14 @@ PY
 - **证据归档完整性**：
   - 若你无法从锚点候选里归档到 ≥2 个 session → `Audit Completeness=INCOMPLETE`。
   - 若归档文件明显来自历史会话（timestamp 远早于锚点窗口或与 run_id 时间窗不符）→ `Audit Completeness=INCOMPLETE` 并写 Errata。
-- **抽查覆盖**：每轮抽查 ≥2 个“归档 session”（`_sessions/*.jsonl.gz`），且必须包含支撑 **T3（git）** 的那一段工具事件/输出。
+- **抽查覆盖**：每轮抽查 ≥2 个“归档 session”（`_sessions/*.gz`），且必须包含支撑 **T3（git）** 的那一段工具事件/输出。
 
 ### 5.4 REVIEW 保险丝清单（必须勾选）
 ```markdown
 ## SG Review Fuse Checklist
 - [ ] 我已读取 EXEC 报告
-- [ ] 我已由 EXEC 的锚点信息归档 `_sessions/*.jsonl.gz`（不是让 EXEC 自己挑）
+- [ ] 我已由 EXEC 的锚点信息归档 `_sessions/*.gz`（不是让 EXEC 自己挑）
 - [ ] 我已按事件流格式核验 toolCall/toolResult（不是只看报告文本）
 - [ ] 事件流抽查 ≥2，且包含 T3（git）
-- [ ] 若发现错配/缺失：已将 `Audit Completeness=INCOMPLETE` 并写 Errata
+- [ ] 我已检查是否存在错配/缺失（若发现，已将 `Audit Completeness=INCOMPLETE` 并写 Errata）
 ```

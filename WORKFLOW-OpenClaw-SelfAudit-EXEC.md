@@ -3,7 +3,7 @@
 > **Role**：SG_EXECUTOR（subagent / 执行者）
 >
 > 本文件是 OpenClaw 自评估的执行版：你负责“执行 + 如实作答 + 提供可复核线索”。
-> **注意：按 KR 模式A，本流程的“证据归档（_sessions/*.jsonl.gz）与最终抽查”由主会话评审官（REVIEW）完成**，执行者不得自选会话打包充当审计闭环。
+> **注意：按 KR 模式A，本流程的“证据归档（_sessions/*.gz）与最终抽查”由主会话评审官（REVIEW）完成**，执行者不得自选会话打包充当审计闭环。
 >
 > - 评审官手册：`WORKFLOW-OpenClaw-SelfAudit-REVIEW.md`
 
@@ -78,6 +78,7 @@ PY /home/ubuntu/.openclaw/agents/main/sessions/<PASTE_FILE>.jsonl
   4) **停止继续执行后续任务**，直到 REVIEW 明确回复 `OK_NEXT <CHECKPOINT_ID>` 才能进入下一步。
 
 - **乱序/过期消息处理（必须）**：若收到不匹配当前 `CHECKPOINT_ID` 的 `OK_NEXT`，一律回 `STALE_CHECKPOINT_IGNORED` 并继续等待，不得前进。
+- **控制消息白名单（必须）**：除 `OK_NEXT <CHECKPOINT_ID>` 外，其他 inter-session 文本（如 announce/ping）一律回复 `CONTROL_MESSAGE_IGNORED`，不得改变当前执行状态。
 
 > 注意：你仍然需要在 Round 开始前打 `ANCHOR_UTC`，在 Round 结束后贴出 `find -newermt` 的候选 sessions。
 
