@@ -1,6 +1,6 @@
 # WORKFLOW — OpenClaw Self-Audit（EXEC / subagent 执行版 / KR 模式A）
 
-> **Role（写死）**：SG_EXECUTOR（subagent / 执行者）
+> **Role**：SG_EXECUTOR（subagent / 执行者）
 >
 > 本文件是 OpenClaw 自评估的执行版：你负责“执行 + 如实作答 + 提供可复核线索”。
 > **注意：按 KR 模式A，本流程的“证据归档（_sessions/*.jsonl.gz）与最终抽查”由主会话评审官（REVIEW）完成**，执行者不得自选会话打包充当审计闭环。
@@ -14,17 +14,17 @@
 
 ---
 
-## 0) Run ID（写死）
+## 0) Run ID
 - 每次全流程（Round1+Round2）生成 `run_id=YYYYMMDD_HHMM`。
 - **重跑=新 run_id**。
 
 ---
 
-## 1) 仲裁证据（写死）
+## 1) 仲裁证据
 - Session JSONL（主）：`/home/ubuntu/.openclaw/agents/main/sessions/*.jsonl`
 - Gateway log（兜底）：按本机可用 journal/gateway 输出
 
-### 1.1 JSONL 抽查脚本（写死，适配 v3 事件流；带行号/时间戳/工具计数/长度）
+### 1.1 JSONL 抽查脚本（适配 v3 事件流；带行号/时间戳/工具计数/长度）
 > 你可以用它来帮助评审官定位“哪个 session 里发生了关键工具事件”。
 
 1) 定位 session 文件：
@@ -67,14 +67,14 @@ PY /home/ubuntu/.openclaw/agents/main/sessions/<PASTE_FILE>.jsonl
 
 ## 2) 统一任务（两轮完全相同）
 
-### 可选项开关（写死）
+### 可选项开关
 - 默认：**不执行可选项**。
 - 若 Operator 在本轮指令中明确说“**加上可选**”或显式写 `ENABLE_OPTIONAL_T4=1`，则必须执行 T4，并在 EXEC 报告头部写：`Optionals: T4=RUN`。
 - 否则在 EXEC 报告头部写：`Optionals: T4=SKIPPED`。
 
 ---
 
-## 2.1 每轮 Round 的时间锚点（写死，KR 模式A 的关键）
+## 2.1 每轮 Round 的时间锚点（KR 模式A 的关键）
 **在本轮 Round 开始、执行任何测试命令前**，必须打 UTC 时间锚点，并贴出输出：
 ```bash
 ANCHOR_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -102,10 +102,10 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
    - `grep -E '^MemTotal:' /proc/meminfo`
 
 ### T2) 写入工具链（/tmp 固定文字）
-写入目标（写死）：
+写入目标：
 - `/tmp/openclaw_selfaudit_<run_id>.txt`
 
-内容必须包含（写死）：
+内容必须包含：
 - run_id
 - UTC 时间戳
 - 固定字符串：`OPENCLAW_SELF_AUDIT_PAYLOAD_OK`
@@ -115,10 +115,10 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
 2) `[OBSERVED]` `head -5`（必须出现固定字符串）
 
 ### T3) Git 工具链（push 到 Audit-Report/）
-写入目标目录（写死）：
+写入目标目录：
 - `Audit-Report/<YYYY-MM-DD>/`
 
-新增文件（写死）：
+新增文件：
 - `Audit-Report/<YYYY-MM-DD>/selfaudit_openclaw_run<run_id>_artifact.txt`
   - 内容同 T2（含固定字符串）
 
@@ -128,9 +128,9 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
 3) `[OBSERVED]` `git commit -m ...` 输出（含 commit id）
 4) `[OBSERVED]` `git push --porcelain github HEAD:${SELF_AUDIT_BRANCH}` 输出片段
 
-> **说明（写死）**：本模式下，T3 不要求你归档 session；你只需提供锚点与候选 session 列表，评审官会从中归档并抽查包含 T3 的 toolCall/toolResult。
+> **说明（必须遵守）**：本模式下，T3 不要求你归档 session；你只需提供锚点与候选 session 列表，评审官会从中归档并抽查包含 T3 的 toolCall/toolResult。
 
-> **分支写死策略（并发友好）**：每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`，例如：
+> **分支策略（必须，且并发友好）**：每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`，例如：
 > - `Self-audit/A`
 > - `Self-audit/B`
 
@@ -150,15 +150,15 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 ---
 
 ## 4) 报告输出（EXEC 仅记录执行与证据；禁止自裁决）
-目录（写死）：`Audit-Report/<YYYY-MM-DD>/`
+目录：`Audit-Report/<YYYY-MM-DD>/`
 
-文件名（写死）：
+文件名：
 - `exec_openclaw_run<run_id>_round1.md`
 - `exec_openclaw_run<run_id>_round1_CN.md`
 - `exec_openclaw_run<run_id>_round2.md`
 - `exec_openclaw_run<run_id>_round2_CN.md`
 
-EXEC 报告头部模板（写死）：
+EXEC 报告头部模板：
 ```markdown
 ## EXEC REPORT
 - Round: <1|2>
@@ -178,7 +178,7 @@ EXEC 报告头部模板（写死）：
 - T4 (optional): <OBSERVED/UNKNOWN blocks>
 ```
 
-执行保险丝清单（写死，必须勾选）：
+执行保险丝清单（必须勾选）：
 ```markdown
 ## SG Execution Fuse Checklist (EXEC)
 - [ ] T1/T2/T3 证据块齐全（≥3 行连续原文）
@@ -188,6 +188,6 @@ EXEC 报告头部模板（写死）：
 
 ---
 
-## 5) RAW_MODEL_STRING（写死：自己查）
+## 5) RAW_MODEL_STRING（自己查）
 - 本自评估默认使用当前对话模型（例如 Codex）。
 - 记录方式：在报告中粘贴主会话 `/status` 的 Model 字段（若可用），或在报告开头声明：`RAW_MODEL_STRING=<你看到的模型 id>`。
