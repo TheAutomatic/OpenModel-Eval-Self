@@ -47,10 +47,34 @@
 
 ---
 
-## 2) 如何派 subagent
+## 2) 如何派 subagent（先框架，后细节）
 
-### 2.1 KR 节奏（逐点闭环 / 推荐执行方式）
-> 目标：避免“先全跑完再审”拉长战线。每个任务点（T1/T2/T3/T4）都应当形成 **EXEC→REVIEW 即时核对→Challenge→裁决→进入下一点** 的闭环。
+### 2.1 编排框架（必须）
+> 目标：固定职责、固定顺序、固定交付，先把“谁做什么”钉死。
+
+**固定拓扑**：`SG -> sub1(reviewer) -> sub2(exec round1), sub3(exec round2)`
+
+**角色职责**：
+- **sub1（reviewer）**：调度、质询、评分、归档、裁决（不代跑 EXEC 任务命令）
+- **sub2（executor round1）**：只执行 Round1（DIRECT_EXEC）
+- **sub3（executor round2）**：只执行 Round2（DIRECT_EXEC）
+
+**顺序门控（硬约束）**：
+1) sub1 先 spawn sub2，执行 Round1。
+2) Round1 未完成 `Challenge + 评分 + round1 verdict` 前，禁止 spawn sub3。
+3) Round1 CLOSED 后，sub1 再 spawn sub3 执行 Round2。
+
+**每轮统一交付物（必须）**：
+- `exec_openclaw_run<run_id>_roundX.md`（由 sub2/sub3 生成）
+- `review_openclaw_run<run_id>_roundX.md`（由 sub1 生成）
+- `_sessions/session_<run_id>_roundX__*.gz`（由 sub1 归档）
+
+**状态门（简版）**：
+- `ROUND1: INIT -> RUNNING -> CHALLENGE -> SCORED -> CLOSED`
+- `ROUND2: INIT -> RUNNING -> CHALLENGE -> SCORED -> CLOSED`
+
+### 2.2 KR 节奏（逐点闭环 / 执行细则）
+> 每个任务点（T1/T2/T3/T4）都应形成 **EXEC→REVIEW 即时核对→Challenge→裁决→进入下一点** 的闭环。
 >
 > **执行约定（必须）**：
 > - EXEC 在每个 T 完成后必须发出 `CHECKPOINT` 小结，并携带 `CHECKPOINT_ID=<run_id>/<round>/<Tn>/<seq>`。
