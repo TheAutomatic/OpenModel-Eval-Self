@@ -40,8 +40,33 @@ Claude 的职责只有三件事：
    - `review_openclaw_run<run_id>_round1.md`（若已存在）
    - `review_openclaw_run<run_id>_round2.md`（若已存在）
 4. 核对 `_sessions/*.gz`（若存在）
+5. 用 `inspect_sessions_gz.py` 做事件流抽查（强烈建议）
 
 ---
+
+## 3.1) 事件流脚本（保留，必备细节）
+`inspect_sessions_gz.py` 是用于**解压并检查 `_sessions/*.gz` 事件流**的脚本。
+
+> 现状：脚本已集中到 workspace：`/home/ubuntu/.openclaw/workspace/scripts/inspect_sessions_gz.py`。
+> 若评审环境里 self-repo 下没有 `scripts/`，请用 workspace 路径调用。
+
+推荐命令：
+
+```bash
+# 摘要查看（assistant 回合 + tool 计数）
+python3 /home/ubuntu/.openclaw/workspace/scripts/inspect_sessions_gz.py Audit-Report/<date>/_sessions
+
+# 按锚点过滤（避免 Round1/2 混看）
+python3 /home/ubuntu/.openclaw/workspace/scripts/inspect_sessions_gz.py Audit-Report/<date>/_sessions --anchor 2026-02-16T03:12:09Z
+
+# 搜索 T3 关键证据
+python3 /home/ubuntu/.openclaw/workspace/scripts/inspect_sessions_gz.py Audit-Report/<date>/_sessions --grep "git commit"
+python3 /home/ubuntu/.openclaw/workspace/scripts/inspect_sessions_gz.py Audit-Report/<date>/_sessions --grep "git push"
+```
+
+关键判读：
+- 归档是 `gzip -c` 全量快照时，同一 UUID 的 round1/round2 可能高度重叠；必须结合 anchor 过滤。
+- 若 `git commit` / `git push` 在目标轮次零命中，至少标记 `INCOMPLETE`，并要求补归档窗口说明。
 
 ## 4) 判定框架（通用，不绑具体模型）
 按统一评分维度 D1~D5：
@@ -115,6 +140,14 @@ Claude 输出必须按三层：
 - **run_id 驱动**
 - **输入最小化（可口述目标轮次）**
 - **输出标准化（MUST/SHOULD/NIT + 最小 patch）**
+
+---
+
+## 8.1) 已知高频坑（评审时优先排查）
+1. **错仓库落盘**：报告/产物写到 `workspace/Audit-Report/...` 而不是 `self-repo/Audit-Report/...`。
+2. **Git 跑偏**：临时分支、detached HEAD、remote 被改写。
+3. **抽查不足**：每轮仅 1 个 session 导致 `INCOMPLETE`。
+4. **模型一致性漂移**：指派模型与 EXEC 自述模型不一致。
 
 ---
 
