@@ -2,7 +2,15 @@
 
 > **Role**：SG_EXECUTOR（subagent / 执行者）
 >
+> ```yaml
+> EVAL_MODE: DIRECT_EXEC
+> WHO_READS_EXEC: executor_subagents
+> WHO_READS_REVIEW: reviewer
+> ROUND_ISOLATION: REQUIRED
+> ```
+>
 > 本文件是 OpenClaw 自评估的执行版：你负责“执行 + 如实作答 + 提供可复核线索”。
+> 一句话边界：你在 **DIRECT_EXEC** 模式下执行本轮——你负责直读 EXEC 原文并产出证据；评分与归档由 REVIEW 负责。
 > **注意：按 KR 模式A，本流程的“证据归档（_sessions/*.gz）与最终抽查”由主会话评审官（REVIEW）完成**，执行者不得自选会话打包充当审计闭环。
 >
 > - 评审官手册：`WORKFLOW-ModelEval-Self-REVIEW.md`

@@ -2,6 +2,13 @@
 
 > **Role**：SG_REVIEWER（主会话 / 评审官）
 >
+> ```yaml
+> EVAL_MODE: DIRECT_EXEC
+> WHO_READS_EXEC: executor_subagents
+> WHO_READS_REVIEW: reviewer
+> ROUND_ISOLATION: REQUIRED
+> ```
+>
 > 目的：评审一个 subagent（执行者）在 SG（本机 OpenClaw）环境下是否真的执行了工具调用与 git 推送，且在质询压力下不“演输出”。
 >
 > **KR 模式A**：
