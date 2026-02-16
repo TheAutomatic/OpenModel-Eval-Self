@@ -40,7 +40,7 @@
 ## 2) 统一任务（按派工 round 执行）
 
 ### 2.0 执行骨架（sub2/sub3 必须遵守）
-- 必要输入：`run_id`、`round=<1|2>`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
+- 必要输入：`run_id`、`round=<round>`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
 - 你只执行被分配的 round：
   - sub2: `round=1`
   - sub3: `round=2`
@@ -137,7 +137,7 @@ fi
    - `git rev-parse --abbrev-ref HEAD`
    - `git remote -v | sed -n '1,4p'`
 2) `[OBSERVED]` 临时文件最小清理（仅本流程命名空间）：
-   - `rm -f /tmp/openclaw_selfaudit_<run_id>_round1.txt /tmp/openclaw_selfaudit_<run_id>_round2.txt`
+   - `rm -f /tmp/openclaw_selfaudit_<run_id>_round<round>.txt`
    - `ls -l /tmp/openclaw_selfaudit_<run_id>_round*.txt 2>/dev/null || echo CLEAN_TMP_OK`
 
 ### T1) 环境指纹 + 最小工具链探针
@@ -154,7 +154,7 @@ fi
 
 ### T2) 写入工具链（/tmp 固定文字）
 写入目标（**必须含 round 后缀，避免 R1/R2 互相覆写**）：
-- `/tmp/openclaw_selfaudit_<run_id>_round<1|2>.txt`
+- `/tmp/openclaw_selfaudit_<run_id>_round<round>.txt`
 
 内容必须包含：
 - run_id
@@ -216,8 +216,6 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 文件名（按本轮 round 只写一组）：
 - `exec_openclaw_run<run_id>_round<round>.md`
 
-> 注：不要求执行体输出中文翻译版（`*_CN.md`）。如需中文汇总，由主会话在最终总评阶段统一生成。
-
 > **统一命名替代**（跨体系横评时使用）：
 > - `eval_<model_slug>_run<run_id>_round<round>.md`
 > - 例：`eval_codex-5.3_run20260216_1110_round1.md`
@@ -254,7 +252,7 @@ EXEC 报告头部模板：
 - [ ] 每个 CHECKPOINT 含 `CHECKPOINT_ID`（逐点闭环可追溯）
 - [ ] 已完成轻量卫生检查（路径/分支/远端三元校验 + /tmp 最小清理）
 - [ ] Round 开始前已贴出 ANCHOR_UTC；T3 后已贴出 MARKER_UTC + sleep 2；Round 结束已贴出 candidate sessions(find -newermt)
-- [ ] T2 文件名含 round 后缀（`_round1.txt` / `_round2.txt`），避免 R1/R2 覆写
+- [ ] T2 文件名含 round 后缀（`_round<round>.txt`），避免 R1/R2 覆写
 - [ ] 本轮仅产出一个 exec 报告文件（未越权写入另一轮文件）
 - [ ] Challenge 回合未将 reenactment 计为证据（出现则标 NON-EVIDENCE）
 ```
