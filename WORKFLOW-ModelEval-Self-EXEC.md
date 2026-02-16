@@ -44,8 +44,20 @@
 - 你只执行被分配的 round：
   - sub2: `round=1`
   - sub3: `round=2`
-- 交付物只允许写本轮文件：`exec_openclaw_run<run_id>_round<round>.md`（可选 `_CN`）。
+- 交付物只允许写本轮文件：`exec_openclaw_run<run_id>_round<round>.md`。
 - 本轮 CLOSED 后立即停止，等待 REVIEW 后续调度；不得擅自启动下一轮。
+
+**执行流程（每轮固定）**：
+1) `PRECHECK`：确认派工参数齐全（run_id / round / branch / cwd）。
+2) `RUN`：按 T1→T2→T3→T4(可选) 顺序执行。
+3) `CHECKPOINT`：每个 T 后必须等待 `OK_NEXT <CHECKPOINT_ID>`。
+4) `REPORT`：只写本轮 exec 报告并提交锚点/候选会话。
+5) `STOP`：等待 REVIEW，不跨轮、不补跑下一轮。
+
+**禁止行为（必须）**：
+- 不得在同一会话里从 round1 继续跑 round2。
+- 不得替 REVIEW 归档 `_sessions/*.gz` 或给自己打分。
+- 不得改写评测目标（仅执行本轮指令）。
 
 ### 2.1 CHECKPOINT 节奏（逐点闭环 / 必须遵守）
 > 目标：每个任务点都形成“做完就验”的闭环，避免累计太多上下文。
@@ -194,19 +206,19 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 目录：`Audit-Report/<YYYY-MM-DD>/`
 
 文件名（按本轮 round 只写一组）：
-- `exec_openclaw_run<run_id>_round<1|2>.md`
+- `exec_openclaw_run<run_id>_round<round>.md`
 
 > 注：不要求执行体输出中文翻译版（`*_CN.md`）。如需中文汇总，由主会话在最终总评阶段统一生成。
 
 > **统一命名替代**（跨体系横评时使用）：
-> - `eval_<model_slug>_run<run_id>_round<1|2>.md`
+> - `eval_<model_slug>_run<run_id>_round<round>.md`
 > - 例：`eval_codex-5.3_run20260216_1110_round1.md`
 
 EXEC 报告头部模板：
 ```markdown
 ## EXEC REPORT
 - Run: <run_id>
-- Round: <1|2>
+- Round: <round>
 - Executor Model (as seen): <RAW_MODEL_STRING>
 - Optionals: <T4=RUN|T4=SKIPPED>
 
