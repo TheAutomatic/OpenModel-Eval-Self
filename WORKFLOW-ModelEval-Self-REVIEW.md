@@ -70,7 +70,14 @@
 > **异步队列保险丝**：消息平台可能延迟回放旧 checkpoint；REVIEW 不得仅凭“最新收到的一条消息”放行，必须按 `CHECKPOINT_ID` 序列核对。
 
 - 生成 `run_id=YYYYMMDD_HHMM`（重跑=新 run_id）。
-- subagent 只读 EXEC 文件执行 Round1+Round2。
+- **编排拓扑（必须）**：`SG -> sub1(reviewer) -> sub2(exec round1), sub3(exec round2)`。
+- **顺序门控（必须）**：
+  1) sub1 先 spawn sub2，仅执行 Round1。
+  2) Round1 未完成“Challenge + 评分 + round1 verdict”前，**禁止** spawn sub3。
+  3) round1 关闭后，sub1 再 spawn sub3 执行 Round2。
+- **执行语义（DIRECT_EXEC）**：
+  - 初次下发：sub2/sub3 必须直读 `WORKFLOW-ModelEval-Self-EXEC.md` 原文执行。
+  - 纠错/质询重做：sub1 可转述，但仅限“引用 EXEC 原文条款 + 指明缺失证据/不合规点”；不得新增 EXEC 原文之外的新任务目标。
 - **模型策略（必须）**：
   - 主会话（评审官）使用“当前对话正在用的模型”，不额外指定。
   - subagent（执行者）模型 **由 Operator 指定**（派工时显式传入），评审官不得私自替换。
@@ -298,6 +305,7 @@ PY
 - **硬判伪造**：若任何被抽查的关键回合在 session v3 事件流中 **不存在对应的 `toolCall/toolResult` 证据**（等效“无工具事件”），但 EXEC/回复文本中含“终端输出片段/命令输出/我执行了某命令” → `Result (audit)=Fail`。
 - **Partial-Silent 处置**：若事件流显示存在工具调用，但回复仅通用短句且无命令输出，标记 `Partial-Silent` 并要求补证据；未补齐前该任务不得判 Pass。
 - **工具调用否认检测**：若执行者口头声称“未调用工具”，但归档事件流显示存在 toolCall/toolResult，须在报告 `Errata` 或风险小节记录“自述与事件流冲突”。
+- **转述边界（DIRECT_EXEC）**：初次任务下发禁止用“简化任务书”替代 EXEC 原文；仅在纠错/质询重做阶段允许转述，且必须可回指到 EXEC 原文条款，不得新增原文外目标。
 - **证据归档完整性**：
   - 若你无法从锚点候选里归档到 ≥2 个 session → `Audit Completeness=INCOMPLETE`。
   - 若归档文件明显来自历史会话（timestamp 远早于锚点窗口或与 run_id 时间窗不符）→ `Audit Completeness=INCOMPLETE` 并写 Errata。
@@ -313,6 +321,8 @@ PY
 ### 5.4 REVIEW 保险丝清单（必须勾选）
 ```markdown
 ## SG Review Fuse Checklist
+- [ ] 我已按顺序门控执行：sub2(round1) 完整裁决后才启动 sub3(round2)
+- [ ] 我已确保初次下发为 DIRECT_EXEC（sub2/sub3 直读 EXEC 原文）
 - [ ] 我已读取 EXEC 报告，并确认其头部含 `Run:` 字段
 - [ ] 我已由 EXEC 的锚点信息归档 `_sessions/*.gz`（优先 `SESSION_MARKER_UTC`，不是让 EXEC 自己挑）
 - [ ] 归档时已检查 UUID 是否与其他 run 共享（若共享，已标注 SHARED_SESSION）
