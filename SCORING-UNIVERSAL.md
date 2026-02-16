@@ -151,7 +151,7 @@ D2_final = (D2_R1 + D2_R2) / 2
 - D5 审计合规性: <0-20>
 - **Total: <0-100>**
 - **Rating: <S|A|B|C|F>**
-- 评分依据: SCORING-UNIVERSAL.md v1.0
+- 评分依据: SCORING-UNIVERSAL.md v1.1
 ```
 
 ---
