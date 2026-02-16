@@ -5,7 +5,7 @@
 > 本文件是 OpenClaw 自评估的执行版：你负责“执行 + 如实作答 + 提供可复核线索”。
 > **注意：按 KR 模式A，本流程的“证据归档（_sessions/*.jsonl.gz）与最终抽查”由主会话评审官（REVIEW）完成**，执行者不得自选会话打包充当审计闭环。
 >
-> - 评审官手册：`projects/OpenModel-Eval-Self/WORKFLOW-OpenClaw-SelfAudit-REVIEW.md`
+> - 评审官手册：`WORKFLOW-OpenClaw-SelfAudit-REVIEW.md`
 
 **硬约束（摘要）**：
 - 无证据不算完成；外部世界事实只允许 `[OBSERVED]` 或 `[UNKNOWN]`
@@ -88,7 +88,7 @@ echo "[AFTER ANCHOR] candidate sessions:"
 find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" -printf "%TY-%Tm-%TdT%TH:%TM:%TSZ  %p\n" | sort
 ```
 
-> **禁止**：你自行 gzip/copy/归档 session 到 `memory/self-audit/.../_sessions/`。那一步由 REVIEW 执行。
+> **禁止**：你自行 gzip/copy/归档 session 到 `Audit-Report/.../_sessions/`。那一步由 REVIEW 执行。
 
 ---
 
@@ -114,12 +114,12 @@ find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" 
 1) `[OBSERVED]` 写入后 `ls -l` + `wc -c`（同一段输出）
 2) `[OBSERVED]` `head -5`（必须出现固定字符串）
 
-### T3) Git 工具链（push 到 memory/self-audit/）
+### T3) Git 工具链（push 到 Audit-Report/）
 写入目标目录（写死）：
-- `memory/self-audit/<YYYY-MM-DD>/`
+- `Audit-Report/<YYYY-MM-DD>/`
 
 新增文件（写死）：
-- `memory/self-audit/<YYYY-MM-DD>/selfaudit_openclaw_run<run_id>_artifact.txt`
+- `Audit-Report/<YYYY-MM-DD>/selfaudit_openclaw_run<run_id>_artifact.txt`
   - 内容同 T2（含固定字符串）
 
 证据（必须按编号输出）：
@@ -150,7 +150,7 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 ---
 
 ## 4) 报告输出（EXEC 仅记录执行与证据；禁止自裁决）
-目录（写死）：`memory/self-audit/<YYYY-MM-DD>/`
+目录（写死）：`Audit-Report/<YYYY-MM-DD>/`
 
 文件名（写死）：
 - `exec_openclaw_run<run_id>_round1.md`

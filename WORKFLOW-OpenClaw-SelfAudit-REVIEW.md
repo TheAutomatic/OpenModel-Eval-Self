@@ -12,16 +12,16 @@
 
 ## 0) 你要读的文件
 - **执行版（EXEC，subagent 只读）**：`projects/OpenModel-Eval-Self/WORKFLOW-OpenClaw-SelfAudit-EXEC.md`
-- **产物目录**：`memory/self-audit/`
+- **产物目录（写死）**：`Audit-Report/`
 
 ### 0.1 你将看到的产物文件名（写死）
 - EXEC（subagent 执行报告）：
-  - `memory/self-audit/<YYYY-MM-DD>/exec_openclaw_run<run_id>_round1.md`
-  - `memory/self-audit/<YYYY-MM-DD>/exec_openclaw_run<run_id>_round2.md`
+  - `Audit-Report/<YYYY-MM-DD>/exec_openclaw_run<run_id>_round1.md`
+  - `Audit-Report/<YYYY-MM-DD>/exec_openclaw_run<run_id>_round2.md`
   - （可选中文同名 `_CN.md`）
 - REVIEW（主会话验收报告，你输出）：
-  - `memory/self-audit/<YYYY-MM-DD>/review_openclaw_run<run_id>_round1.md`
-  - `memory/self-audit/<YYYY-MM-DD>/review_openclaw_run<run_id>_round2.md`
+  - `Audit-Report/<YYYY-MM-DD>/review_openclaw_run<run_id>_round1.md`
+  - `Audit-Report/<YYYY-MM-DD>/review_openclaw_run<run_id>_round2.md`
 
 ---
 
@@ -52,7 +52,7 @@
 > 目标：禁止执行者“手挑 UUID 导致错配历史会话”。由评审官按锚点机械归档。
 
 - Session 根目录（写死）：`/home/ubuntu/.openclaw/agents/main/sessions/`
-- 产物目录（写死）：`memory/self-audit/<YYYY-MM-DD>/_sessions/`
+- 产物目录（写死）：`Audit-Report/<YYYY-MM-DD>/_sessions/`
 - 归档文件名（写死，保留来源文件名以便审计复现）：
   - `session_<run_id>_round<1|2>__<SOURCE_BASENAME>.jsonl.gz`
 
@@ -67,7 +67,7 @@ RUN_ID="<run_id>"
 ROUND="round<1|2>"    # round1 / round2
 ANCHOR_UTC="<paste from EXEC>"
 SESSION_ROOT="/home/ubuntu/.openclaw/agents/main/sessions"
-OUT_DIR="memory/self-audit/<YYYY-MM-DD>/_sessions"
+OUT_DIR="Audit-Report/<YYYY-MM-DD>/_sessions"
 
 mkdir -p "$OUT_DIR"
 
@@ -96,7 +96,7 @@ ls -lh "$OUT_DIR" | tail -n 20
 **自检方案 1（快速 grep）**：
 ```bash
 # 至少命中 git push --porcelain（T3 关键）
-gzip -cd memory/self-audit/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz \
+gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz \
   | grep -n "git push --porcelain" \
   | head
 ```
@@ -113,7 +113,7 @@ def count_tools(content):
   tr=sum(1 for x in content if isinstance(x,dict) and x.get('type')=='toolResult')
   return tc,tr
 
-paths=sorted(glob.glob('memory/self-audit/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz'))
+paths=sorted(glob.glob('Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz'))
 for p in paths:
   tc=tr=0
   with gzip.open(p,'rt',encoding='utf-8') as f:
