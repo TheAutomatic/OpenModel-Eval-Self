@@ -9,7 +9,7 @@ All self-audit outputs live here, organized by date:
 
 - `Audit-Report/YYYY-MM-DD/exec_openclaw_run<run_id>_round<1|2>.md` — executor (subagent) evidence report
 - `Audit-Report/YYYY-MM-DD/review_openclaw_run<run_id>_round<1|2>.md` — reviewer (main session) audit verdict
-- `Audit-Report/YYYY-MM-DD/_sessions/` — gzipped OpenClaw session JSONL archives used as arbitration evidence
+- `Audit-Report/YYYY-MM-DD/_sessions/` — `.gz` archives of OpenClaw session JSONL files used as arbitration evidence
 
 This repo is the **single source of truth** for audit artifacts; do not write new audit outputs into the global workspace `memory/`.
 

@@ -22,14 +22,16 @@
   - 若缺证据，是否标记 `INCOMPLETE` 或 `Fail`
 
 ### B. 证据闭环（再看 EXEC + _sessions）
-- EXEC 报告中的关键声明是否能在 `_sessions/*.jsonl.gz` 里对上：
+- EXEC 报告中的关键声明是否能在 `_sessions/*.gz` 里对上：
   - T1/T2/T3/T4 是否都存在真实工具事件痕迹
   - T3 是否能命中 `git commit` 与 `git push`
   - 有没有“报告写了输出，但事件流没有 toolCall/toolResult”的伪造风险
 
 ### C. KR 节奏符合性
-- 是否有 `CHECKPOINT` + `WAITING_REVIEW_OK_NEXT`
+- 是否有 `CHECKPOINT` + `CHECKPOINT_ID`
+- 是否严格使用 `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>` 与 `OK_NEXT <CHECKPOINT_ID>` 配对放行
 - 是否体现“逐点闭环”（不是先全跑完再统一复盘）
+- 是否将无关 inter-session 文本（announce/ping）视为 `CONTROL_MESSAGE_IGNORED`，不改变执行状态
 
 ## 3) 给意见的格式（必须可执行）
 请按这三档输出，不要混在一段里：
