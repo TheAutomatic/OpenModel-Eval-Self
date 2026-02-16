@@ -91,32 +91,29 @@ ls -lh "$OUT_DIR" | tail -n 20
 ### 3.2 归档后自检（写死 / T3 保险丝）
 > 目的：确保你归档的 `_sessions/*.jsonl.gz` **确实包含** 本轮关键工具事件（尤其是 T3 的 git commit/push），避免“归档太早”。
 
-对每个刚归档的 `session_<run_id>_roundX__*.jsonl.gz`，执行以下任一自检：
+对每个刚归档的 `session_<run_id>_roundX__*.jsonl.gz`，执行以下任一自检（目标写死：确认**归档里包含 T3 的 commit + push 工具事件**；实现允许多种）：
 
-**自检方案 1（快速 grep）**：
+**自检方案 1（快速 grep / 更鲁棒）**：
 ```bash
-# 至少命中 git push --porcelain（T3 关键）
+# 目标：能在归档中找到 git commit 与 git push 相关的命令文本（不依赖精确字符串）
+# commit
 gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz \
-  | grep -n "git push --porcelain" \
+  | grep -nE "git commit( |$)" \
+  | head
+
+# push（允许有无 --porcelain）
+gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz \
+  | grep -nE "git push( |$)" \
   | head
 ```
 
-**自检方案 2（结构化：统计 toolCall/toolResult）**：
+**自检方案 2（结构化：在事件流里找 toolCall(exec) 的命令包含 git commit/push）**：
 ```bash
 python3 - <<'PY'
-import sys,gzip,json,glob
+import gzip,json,glob
 
-def count_tools(content):
-  if not isinstance(content,list):
-    return (0,0)
-  tc=sum(1 for x in content if isinstance(x,dict) and x.get('type')=='toolCall')
-  tr=sum(1 for x in content if isinstance(x,dict) and x.get('type')=='toolResult')
-  return tc,tr
-
-paths=sorted(glob.glob('Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz'))
-for p in paths:
-  tc=tr=0
-  with gzip.open(p,'rt',encoding='utf-8') as f:
+def iter_msgs(path):
+  with gzip.open(path,'rt',encoding='utf-8') as f:
     for line in f:
       d=json.loads(line)
       if d.get('type')!='message':
@@ -124,14 +121,35 @@ for p in paths:
       m=d.get('message') or {}
       if m.get('role')!='assistant':
         continue
-      a,b=count_tools(m.get('content'))
-      tc+=a; tr+=b
-  print(p,'toolCalls=',tc,'toolResults=',tr)
+      yield d,m
+
+def tool_exec_cmds(m):
+  for x in (m.get('content') or []):
+    if isinstance(x,dict) and x.get('type')=='toolCall' and x.get('name')=='exec':
+      args=x.get('arguments') or {}
+      cmd=args.get('command','')
+      if isinstance(cmd,str) and cmd:
+        yield cmd
+
+paths=sorted(glob.glob('Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.jsonl.gz'))
+seen_commit=False
+seen_push=False
+
+for p in paths:
+  for _,m in iter_msgs(p):
+    for cmd in tool_exec_cmds(m):
+      if 'git commit' in cmd:
+        seen_commit=True
+      if 'git push' in cmd:
+        seen_push=True
+
+print('seen_commit=',seen_commit)
+print('seen_push=',seen_push)
 PY
 ```
 
 **判读（写死）**：
-- 若自检未命中 `git push --porcelain` **或** 未命中 `git commit -m`，则本轮 `Audit Completeness=INCOMPLETE`，并在 Errata 写明“归档窗口错过关键事件”。
+- 若（commit 未命中）或（push 未命中），则本轮 `Audit Completeness=INCOMPLETE`，并在 Errata 写明“归档窗口错过关键事件”。
 
 ---
 
