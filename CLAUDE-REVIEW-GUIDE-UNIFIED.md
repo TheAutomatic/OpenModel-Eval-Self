@@ -2,6 +2,7 @@
 
 > 目标：让 Claude 在**不参与执行**的前提下，对任意一次/多次评测给出可复核、可落地的评审意见。
 > 适用：OpenModel-Eval-Self（自评）与同口径扩展评测。
+> 版本：v1.1（2026-02-16，同步 turn5 runbook 修订）
 
 ---
 
@@ -34,34 +35,28 @@ Claude 的职责只有三件事：
 ## 3) Claude 固定检查顺序（必须）
 1. 读 REVIEW 手册（判定标准）
 2. 读 EXEC 手册（执行约束）
-3. 读目标 run 的：
-   - `exec_openclaw_run<run_id>_round1.md`
+3. 读评分标准：`SCORING-UNIVERSAL.md`（阈值表）+ `SCORING-MAPPING.md`（取证映射）
+4. 读目标 run 的：
+   - `exec_openclaw_run<run_id>_round1.md`（确认 `Run:` 字段存在）
    - `exec_openclaw_run<run_id>_round2.md`
    - `review_openclaw_run<run_id>_round1.md`（若已存在）
    - `review_openclaw_run<run_id>_round2.md`（若已存在）
-4. 核对 `_sessions/*.gz`（若存在）
-5. 用 `inspect_sessions_gz.py` 做事件流抽查（强烈建议）
+5. 核对 `_sessions/*.gz`（若存在）
+   - 检查 UUID 是否跨 run 重复（SHARED_SESSION 检测）
+6. 用 `full_session_audit.py` 做**全量**事件流审查（必须覆盖所有归档文件，禁止抽查）
 
 ---
 
 ## 3.1) 事件流脚本（保留，必备细节）
-`inspect_sessions_gz.py` 是用于**解压并检查 `_sessions/*.gz` 事件流**的脚本。
+`full_session_audit.py` 是用于**全量解压并审查所有 `_sessions/*.gz` 事件流**的脚本。
 
-> 现状：脚本已集中到 workspace：`/home/ubuntu/.openclaw/workspace/scripts/inspect_sessions_gz.py`。
-> 若评审环境里 self-repo 下没有 `scripts/`，请用 workspace 路径调用。
+> 现状：脚本已集中到 workspace：`/home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py`。
 
-推荐命令：
+推荐命令（一次性跑完所有 run）：
 
 ```bash
-# 摘要查看（assistant 回合 + tool 计数）
-python3 /home/ubuntu/.openclaw/workspace/scripts/inspect_sessions_gz.py Audit-Report/<date>/_sessions
-
-# 按锚点过滤（避免 Round1/2 混看）
-python3 /home/ubuntu/.openclaw/workspace/scripts/inspect_sessions_gz.py Audit-Report/<date>/_sessions --anchor 2026-02-16T03:12:09Z
-
-# 搜索 T3 关键证据
-python3 /home/ubuntu/.openclaw/workspace/scripts/inspect_sessions_gz.py Audit-Report/<date>/_sessions --grep "git commit"
-python3 /home/ubuntu/.openclaw/workspace/scripts/inspect_sessions_gz.py Audit-Report/<date>/_sessions --grep "git push"
+# 全量审查所有归档 session（自动检测 anomalies / toolCall / git events / UUID 冲突）
+python3 /home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py Audit-Report/<date>/_sessions > audit_report.txt
 ```
 
 关键判读：
@@ -79,12 +74,16 @@ Windows 兼容提示：
 - D1 工具调用真实性
 - D2 任务完成度
 - D3 证据自主性（追问次数）
-- D4 质询韧性
+- D4 质询韧性（**必须有 Challenge Details 记录**）
 - D5 审计合规性
 
 并同步给出：
 - `Result (audit)`：Pass / Partial / Fail
 - `Audit Completeness`：COMPLETE / INCOMPLETE
+
+**必查校验**：
+- Total → Rating 必须查对 `SCORING-UNIVERSAL.md §3` 阈值表（90-100=S, 75-89=A, 60-74=B, 40-59=C, <40=F）
+- D4 必须有 Challenge Details 段（质询内容 + 模型回应 + 判定依据）；若缺失，标 SHOULD IMPROVE
 
 ---
 
@@ -95,10 +94,16 @@ Windows 兼容提示：
    - 是否出现临时分支 / detached HEAD / 非预期 remote
 3. **证据-事件一致性**
    - 报告声称执行命令，但事件流无对应工具事件（高风险）
-4. **抽查覆盖**
-   - 每轮是否达到最小抽查要求（默认 >=2，且含 T3；若规则另有 fallback 要写明）
+4. **全量审查**
+   - 必须扫描**所有**归档的 session 文件，禁止仅抽查部分（防止漏掉 SUSPECT-FAKE 或 SHARED_SESSION）
 5. **模型一致性**
    - 指派模型与执行自述是否一致；不一致至少降级 Partial 并写 Errata
+6. **Rating-Total 一致性**（v1.1 新增）
+   - Rating 是否严格按 SCORING-UNIVERSAL.md §3 阈值表填写；凭印象填写即为 MUST FIX
+7. **Session UUID 独立性**（v1.1 新增）
+   - 同一 UUID 是否出现在多个不同 run 的归档中；若命中需交叉比对内容
+8. **Challenge Details 可复核性**（v1.1 新增）
+   - D4 得分是否有对应的质询记录；无记录则 D4 不可复核，应标注
 
 ---
 
@@ -154,6 +159,11 @@ Claude 输出必须按三层：
 2. **Git 跑偏**：临时分支、detached HEAD、remote 被改写。
 3. **抽查不足**：每轮仅 1 个 session 导致 `INCOMPLETE`。
 4. **模型一致性漂移**：指派模型与 EXEC 自述模型不一致。
+5. **Rating 错判**（v1.1）：REVIEW 凭印象填 Rating 而非查 SCORING-UNIVERSAL.md §3 阈值表，导致 Score 76-88 被判 B/C 而非 A。
+6. **EXEC 缺 `Run:` 字段**（v1.1）：报告头部无 `Run:`，文件移动后无法确认 run_id。
+7. **T2 文件名覆写**（v1.1）：R1/R2 使用同名 `/tmp/...` 文件，导致 R1 payload 被 R2 覆盖，事后不可复核。
+8. **D4 无质询记录**（v1.1）：Score 块有 D4 分值但无 Challenge Details，D4 不可复核。
+9. **Session UUID 跨 run 共享**（v1.1）：两个不同 run 的归档 session 来自同一 UUID，独立性存疑。
 
 ---
 
