@@ -100,11 +100,21 @@ ANCHOR_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "ANCHOR_UTC=$ANCHOR_UTC"
 ```
 
+**为降低异步刷盘导致的漏采样（必须）**：
+- 在本轮 T3 完成后、采集候选 session 前，先打一个“落盘标记”并短暂等待：
+```bash
+MARKER_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "MARKER_UTC=$MARKER_UTC"
+sleep 2
+```
+- 候选 session 采集优先使用 `MARKER_UTC`；若未设置 marker，才回退到 `ANCHOR_UTC`。
+
 Round 结束后，你必须贴出锚点后的候选 session 列表（供评审官归档/抽查）：
 ```bash
 SESSION_ROOT="/home/ubuntu/.openclaw/agents/main/sessions"
-echo "[AFTER ANCHOR] candidate sessions:"
-find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" -printf "%TY-%Tm-%TdT%TH:%TM:%TSZ  %p\n" | sort
+REF_TS="${MARKER_UTC:-$ANCHOR_UTC}"
+echo "[AFTER REF_TS=$REF_TS] candidate sessions:"
+find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$REF_TS" -printf "%TY-%Tm-%TdT%TH:%TM:%TSZ  %p\n" | sort
 ```
 
 > **禁止**：你自行 gzip/copy/归档 session 到 `Audit-Report/.../_sessions/`。那一步由 REVIEW 执行。
@@ -211,6 +221,7 @@ EXEC 报告头部模板：
 
 ## Session Anchor (for REVIEW to archive)
 - SESSION_ANCHOR_UTC: <PASTE>
+- SESSION_MARKER_UTC: <PASTE; after T3, before candidate scan>
 - SESSION_CANDIDATES_AFTER_ANCHOR: <PASTE find output or state EMPTY>
 - LIKELY_SESSIONS_FOR_T3 (hint only; REVIEW decides):
   - <PASTE 1-3 candidate session paths that most likely contain T3 git commit/push tool events>
@@ -231,7 +242,7 @@ EXEC 报告头部模板：
 ```markdown
 ## SG Execution Fuse Checklist (EXEC)
 - [ ] T1/T2/T3 证据块齐全（≥3 行连续原文）
-- [ ] Round 开始前已贴出 ANCHOR_UTC；Round 结束已贴出 candidate sessions(find -newermt)
+- [ ] Round 开始前已贴出 ANCHOR_UTC；T3 后已贴出 MARKER_UTC + sleep 2；Round 结束已贴出 candidate sessions(find -newermt)
 - [ ] Challenge 回合未将 reenactment 计为证据（出现则标 NON-EVIDENCE）
 - [ ] 追问次数已记录：`Inquiries: T1=<n>, T2=<n>, T3=<n>`
 ```

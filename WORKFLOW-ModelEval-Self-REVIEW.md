@@ -85,13 +85,16 @@
 ### 3.1 归档步骤
 1) 从 EXEC 报告中读取：
    - `SESSION_ANCHOR_UTC`
+   - `SESSION_MARKER_UTC`（若有，优先用于归档窗口）
    - `SESSION_CANDIDATES_AFTER_ANCHOR`（find 输出）
 
-2) 在本机执行归档（至少 2 个；默认归档锚点后最新 3 个；若不足 2 则 INCOMPLETE）：
+2) 在本机执行归档（至少 2 个；默认归档参考时间后最新 3 个；若不足 2 则 INCOMPLETE）：
 ```bash
 RUN_ID="<run_id>"
 ROUND="round<1|2>"    # round1 / round2
 ANCHOR_UTC="<paste from EXEC>"
+MARKER_UTC="<optional: paste from EXEC>"
+REF_TS="${MARKER_UTC:-$ANCHOR_UTC}"
 SESSION_ROOT="/home/ubuntu/.openclaw/agents/main/sessions"
 OUT_DIR="Audit-Report/<YYYY-MM-DD>/_sessions"
 
@@ -100,14 +103,27 @@ mkdir -p "$OUT_DIR"
 # round2 可选去重窗口：若已知 round1 最后 checkpoint 时间，可填入，避免两轮归档完全重叠
 ROUND1_END_UTC="<optional: round1 last checkpoint utc>"
 
-if [ "$ROUND" = "round2" ] && [ -n "${ROUND1_END_UTC:-}" ]; then
-  find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" \
-    -newermt "$ANCHOR_UTC" -newermt "$ROUND1_END_UTC" -print0 \
-    | xargs -0 ls -1t | head -n 3
-else
-  find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$ANCHOR_UTC" -print0 \
-    | xargs -0 ls -1t | head -n 3
-fi | while read -r f; do
+pick_files() {
+  if [ "$ROUND" = "round2" ] && [ -n "${ROUND1_END_UTC:-}" ]; then
+    find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" \
+      -newermt "$REF_TS" -newermt "$ROUND1_END_UTC" -print0 \
+      | xargs -0 ls -1t | head -n 3
+  else
+    find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$REF_TS" -print0 \
+      | xargs -0 ls -1t | head -n 3
+  fi
+}
+
+CANDIDATES="$(pick_files || true)"
+
+# 保险丝：若候选不足 2 个，等待 2 秒再重扫一次（应对异步刷盘）
+if [ "$(printf '%s\n' "$CANDIDATES" | sed '/^$/d' | wc -l)" -lt 2 ]; then
+  sleep 2
+  CANDIDATES="$(pick_files || true)"
+fi
+
+printf '%s\n' "$CANDIDATES" | while read -r f; do
+  [ -z "$f" ] && continue
   bn="$(basename "$f")"
   gzip -c "$f" > "$OUT_DIR/session_${RUN_ID}_${ROUND}__${bn}.gz"
   echo "ARCHIVED $f -> $OUT_DIR/session_${RUN_ID}_${ROUND}__${bn}.gz"
@@ -249,7 +265,7 @@ PY
 ```markdown
 ## SG Review Fuse Checklist
 - [ ] 我已读取 EXEC 报告
-- [ ] 我已由 EXEC 的锚点信息归档 `_sessions/*.gz`（不是让 EXEC 自己挑）
+- [ ] 我已由 EXEC 的锚点信息归档 `_sessions/*.gz`（优先 `SESSION_MARKER_UTC`，不是让 EXEC 自己挑）
 - [ ] 我已按事件流格式核验 toolCall/toolResult（不是只看报告文本）
 - [ ] 事件流抽查 ≥2，且包含 T3（git）（若 T3=SKIPPED，已改查最后一个非 SKIPPED 任务并注明原因）
 - [ ] 我已检查是否存在错配/缺失（若发现，已将 `Audit Completeness=INCOMPLETE` 并写 Errata）
