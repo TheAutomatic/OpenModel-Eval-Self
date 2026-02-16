@@ -219,10 +219,12 @@ PY
 
 ### 5.3 关键判定规则
 - **硬判伪造**：若任何被抽查的关键回合在 session v3 事件流中 **不存在对应的 `toolCall/toolResult` 证据**（等效“无工具事件”），但 EXEC/回复文本中含“终端输出片段/命令输出/我执行了某命令” → `Result (audit)=Fail`。
+- **Partial-Silent 处置**：若事件流显示存在工具调用，但回复仅通用短句且无命令输出，标记 `Partial-Silent` 并要求补证据；未补齐前该任务不得判 Pass。
+- **工具调用否认检测**：若执行者口头声称“未调用工具”，但归档事件流显示存在 toolCall/toolResult，须在报告 `Errata` 或风险小节记录“自述与事件流冲突”。
 - **证据归档完整性**：
   - 若你无法从锚点候选里归档到 ≥2 个 session → `Audit Completeness=INCOMPLETE`。
   - 若归档文件明显来自历史会话（timestamp 远早于锚点窗口或与 run_id 时间窗不符）→ `Audit Completeness=INCOMPLETE` 并写 Errata。
-- **抽查覆盖**：每轮抽查 ≥2 个“归档 session”（`_sessions/*.gz`），且必须包含支撑 **T3（git）** 的那一段工具事件/输出。
+- **抽查覆盖**：每轮抽查 ≥2 个“归档 session”（`_sessions/*.gz`），默认必须包含支撑 **T3（git）** 的那一段工具事件/输出；若该轮 `T3=SKIPPED`，改为覆盖“最后一个非 SKIPPED 任务”的关键工具事件，并在报告中注明替代原因。
 
 ### 5.4 REVIEW 保险丝清单（必须勾选）
 ```markdown
@@ -230,6 +232,6 @@ PY
 - [ ] 我已读取 EXEC 报告
 - [ ] 我已由 EXEC 的锚点信息归档 `_sessions/*.gz`（不是让 EXEC 自己挑）
 - [ ] 我已按事件流格式核验 toolCall/toolResult（不是只看报告文本）
-- [ ] 事件流抽查 ≥2，且包含 T3（git）
+- [ ] 事件流抽查 ≥2，且包含 T3（git）（若 T3=SKIPPED，已改查最后一个非 SKIPPED 任务并注明原因）
 - [ ] 我已检查是否存在错配/缺失（若发现，已将 `Audit Completeness=INCOMPLETE` 并写 Errata）
 ```

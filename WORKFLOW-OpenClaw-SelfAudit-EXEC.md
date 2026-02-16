@@ -34,7 +34,7 @@ ls -lt /home/ubuntu/.openclaw/agents/main/sessions/*.jsonl | head -5
 
 2) 抽取 assistant 回合摘要（v3：`type=message`，工具在 `message.content[]` 的 `toolCall/toolResult` 里）：
 ```bash
-python3 - <<'PY'
+python3 - <<'PY' /home/ubuntu/.openclaw/agents/main/sessions/<PASTE_FILE>.jsonl
 import sys,json
 path=sys.argv[1]
 
@@ -60,8 +60,9 @@ for i,line in enumerate(open(path,'r',encoding='utf-8'), start=1):
   clen = len(json.dumps(m.get('content',''), ensure_ascii=False))
   ts = d.get('timestamp','N/A')
   print(f"L{i} | ts={ts} | toolCalls={tc} toolResults={tr} | content_json_len={clen}")
-PY /home/ubuntu/.openclaw/agents/main/sessions/<PASTE_FILE>.jsonl
+PY
 ```
+> 脚本可执行性保险丝（必须）：runbook 中给出的示例命令必须可直接复制执行；若你改过示例，先本机 dry-run 一次再贴给评审官。
 
 ---
 
@@ -79,6 +80,7 @@ PY /home/ubuntu/.openclaw/agents/main/sessions/<PASTE_FILE>.jsonl
 
 - **乱序/过期消息处理（必须）**：若收到不匹配当前 `CHECKPOINT_ID` 的 `OK_NEXT`，一律回 `STALE_CHECKPOINT_IGNORED` 并继续等待，不得前进。
 - **控制消息白名单（必须）**：除 `OK_NEXT <CHECKPOINT_ID>` 外，其他 inter-session 文本（如 announce/ping）一律回复 `CONTROL_MESSAGE_IGNORED`，不得改变当前执行状态。
+- **半静默（Partial-Silent）判定（必须）**：若事件流显示该回合存在工具调用（toolCall/toolResult 非 0），但对外回复仅为通用短句且无任何命令输出，标记 `Partial-Silent`；先按追问/拆步补证据，不直接按“伪造”判死。
 
 > 注意：你仍然需要在 Round 开始前打 `ANCHOR_UTC`，在 Round 结束后贴出 `find -newermt` 的候选 sessions。
 
