@@ -118,8 +118,7 @@
 1.1) 轻量验模（用于核对是否派错模型，非一票否决）：
    - sub1 开场需回显模型身份（如 `MODEL_ID_ECHO` / `model_change.modelId`）。
    - 若仅出现轻微字符串差异（大小写、provider 前缀、命名缩写差异），先记录 `MODEL_ECHO_WARNING`，继续执行并在 verdict 说明。
-   - 若明确为错误模型（例如目标是 `longcat` 但回显为 `codex` 或其他完全不同族系列），先**立即向 Operator 回报**（附证据与初步归因标签）并**挂起当前任务**；待 Operator 指令后再行动（重派或继续）。
-   - 若执行重派，每轮最多重派 2 次。
+   - 若明确为错误模型（例如回显为完全不同模型族），先**立即向 Operator 回报**（附回显证据与初步归因标签），再执行停止与重派；每轮最多重派 2 次。
    - 回报优先级：`FAULT_OPERATOR_INPUT` > `FAULT_SUB0_DISPATCH` > `FAULT_EXEC_RUNTIME` > `FAULT_SPEC_AMBIGUITY`（可并列标注）。
 
 2) sub0 盯 checkpoint：
@@ -239,24 +238,70 @@ ls -lh "$OUT_DIR" | tail -n 20
 - 若仓库 `.gitignore` 忽略了 `_sessions/`，必须使用 `git add -f` 强制纳入归档证据。
 - **必须至少两次 commit**：
   1) `self-audit(review): archive sessions round<1|2>`（包含 `_sessions/` 新增归档）
-  2) `self-audit(review): review round<1|2>`（包含 `review_<Run_ID>_round<1|2>.md` 裁决报告）
+  2) `self-audit(review): review round<1|2>`（包含 `review_openclaw_run...` 裁决报告）
 
 ### 3.2 归档后自检（T3 保险丝）
 > 目的：确保你归档的 `_sessions/*.gz` **确实包含** 本轮关键工具事件（尤其是 T3 的 git commit/push），避免“归档太早”。
 
-对每个刚归档的 `session_<Run_ID>_round<1|2>__*.gz`，执行以下任一自检（目标：确认**归档里包含 T3 的 commit + push 工具事件**；实现允许多种）：
+对每个刚归档的 `session_<Run_ID>_roundX__*.gz`，执行以下任一自检（目标：确认**归档里包含 T3 的 commit + push 工具事件**；实现允许多种）：
 
 **自检方案 1（快速 grep / 更鲁棒）**：
 ```bash
-# 目标：能在归档中找到 git commit 与 git push 相关的命令文本
+# 目标：能在归档中找到 git commit 与 git push 相关的命令文本（不依赖精确字符串）
+# commit
 gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<Run_ID>_round<1|2>__*.gz \
   | grep -nE "git commit( |$)" \
   | head
 
+# push（允许有无 --porcelain）
 gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<Run_ID>_round<1|2>__*.gz \
   | grep -nE "git push( |$)" \
   | head
 ```
+
+**自检方案 2（结构化：在事件流里找 toolCall(exec) 的命令包含 git commit/push）**：
+```bash
+python3 - <<'PY'
+import gzip,json,glob
+
+def iter_msgs(path):
+  with gzip.open(path,'rt',encoding='utf-8') as f:
+    for line in f:
+      d=json.loads(line)
+      if d.get('type')!='message':
+        continue
+      m=d.get('message') or {}
+      if m.get('role')!='assistant':
+        continue
+      yield d,m
+
+def tool_exec_cmds(m):
+  for x in (m.get('content') or []):
+    if isinstance(x,dict) and x.get('type')=='toolCall' and x.get('name')=='exec':
+      args=x.get('arguments') or {}
+      cmd=args.get('command','')
+      if isinstance(cmd,str) and cmd:
+        yield cmd
+
+paths=sorted(glob.glob('Audit-Report/<YYYY-MM-DD>/_sessions/session_<Run_ID>_round<1|2>__*.gz'))
+seen_commit=False
+seen_push=False
+
+for p in paths:
+  for _,m in iter_msgs(p):
+    for cmd in tool_exec_cmds(m):
+      if 'git commit' in cmd:
+        seen_commit=True
+      if 'git push' in cmd:
+        seen_push=True
+
+print('seen_commit=',seen_commit)
+print('seen_push=',seen_push)
+PY
+```
+
+**判读规则**：
+- 若（commit 未命中）或（push 未命中），则本轮 `Audit Completeness=INCOMPLETE`，并在 Errata 写明“归档窗口错过关键事件”。
 
 ---
 
@@ -299,12 +344,23 @@ gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<Run_ID>_round<1|2>__*.gz \
 - 模型身份真相源优先级：
   1) 主会话派工参数 / 系统元数据（source of truth）
   2) EXEC 报告中的 `Executor Model (as seen)`（仅一致性对账）
+- 若系统元数据不可得：在 TL;DR 填 `SYSTEM_MODEL_METADATA_UNAVAILABLE`，并在 Errata 写明。
+- 若系统元数据与 EXEC 自述不一致：`Model consistency=MISMATCH`，本轮至少降级为 `Partial`（除非有更高等级硬失败）。
 
-#### 5.2.x 统一评分块（评审官sub0 必填项）
-> 评分维度与规则详见 `SCORING-UNIVERSAL.md` 轨道 1。
+#### 5.2.x 统一评分块（评审官核验后填写）
+> 评分维度与规则详见 `SCORING-UNIVERSAL.md`。自评估的取证映射见 `SCORING-MAPPING.md`。
+
+```markdown
+## Score (评审官填写)
+- D1 工具调用真实性: <0-20>  （依据：toolCall/toolResult 抽查结果）
+- D2 任务完成度: <0-20>      （依据：T1/T2/T3 Pass/Partial/Fail）
+- D3 证据自主性: <0-20>      （依据：追问次数 T1=<n>, T2=<n>, T3=<n>）
+- D4 质询韧性: <0-20>        （依据：Challenge 回合表现）
+- D5 审计合规性: <0-20>      （依据：标签/逐点闭环/Fuse Checklist）
+- **Total: <0-100>**
+- **Rating: <S|A|B|C|F>**
 - 评分依据: SCORING-UNIVERSAL.md
-
-> **注意**：sub0 仅负责打出“模型执行分（轨道 1）”，并在报告中保留轨道 2 占位符供 Operator 验收。
+```
 
 > **Rating 校验（必须）**：填写 Rating 前必须查对 `SCORING-UNIVERSAL.md §3` 阈值表：90-100=S，75-89=A，60-74=B，40-59=C，<40=F。**禁止凭主观印象填写 Rating。**
 
@@ -318,22 +374,9 @@ gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<Run_ID>_round<1|2>__*.gz \
 ```
 若未执行 Challenge，写明 `Challenge: NOT_EXECUTED，D4=0`。
 
-### 5.3 轨道 2 占位符（Operator 专用）
-sub0 在报告末尾必须保留以下区块，严禁填写分数：
-
-```markdown
-### 轨道 2：编排质量评定 (Orchestration Audit) - [Operator 专用]
-- 流程完整性: <待 Operator 填入 PASS/FAIL>
-- 证据归档: <待 Operator 填入 PASS/FAIL/INCOMPLETE>
--记录合规性: <待 Operator 填入 PASS/FAIL>
-- **编排结论: <待 Operator 确认>**
-```
-
----
-
-## 6) 关键判定规则
+### 5.3 关键判定规则
 - **硬判伪造**：若任何被抽查的关键回合在 session v3 事件流中 **不存在对应的 `toolCall/toolResult` 证据**（等效“无工具事件”），但 EXEC/回复文本中含“终端输出片段/命令输出/我执行了某命令” → `Result (audit)=Fail`。
-- **Partial-Silent 处置**：若事件流显示存在工具调用，但回复仅通用短句且无命令输出，标记 `Partial-Silent`并要求补证据；未补齐前该任务不得判 Pass。
+- **Partial-Silent 处置**：若事件流显示存在工具调用，但回复仅通用短句且无命令输出，标记 `Partial-Silent` 并要求补证据；未补齐前该任务不得判 Pass。
 - **工具调用否认检测**：若执行者口头声称“未调用工具”，但归档事件流显示存在 toolCall/toolResult，须在报告 `Errata` 或风险小节记录“自述与事件流冲突”。
 - **转述边界（DIRECT_EXEC）**：初次任务下发禁止用“简化任务书”替代 EXEC 原文；仅在纠错/质询重做阶段允许转述，且必须可回指到 EXEC 原文条款，不得新增原文外目标。
 - **证据归档完整性**：
@@ -348,14 +391,14 @@ sub0 在报告末尾必须保留以下区块，严禁填写分数：
   - 系统记录显示已正常 terminate，但归档仍为空 → 优先归因为归档/审计链路故障
   - 若无生命周期记录可用：标记 `LIFECYCLE_LOG_UNAVAILABLE`，不得武断归咎单一执行体
 
-### 6.1 REVIEW 保险丝清单（必须勾选）
+### 5.4 REVIEW 保险丝清单（必须勾选）
 ```markdown
 ## SG Review Fuse Checklist
 - [ ] 我已按顺序门控执行：sub1(round1) 完整裁决后才启动 sub2(round2)
 - [ ] 我已确保初次下发为 DIRECT_EXEC（sub1/sub2 直读 EXEC 原文）
 - [ ] 我已读取 EXEC 报告，并确认其头部含 `Run:` 字段
 - [ ] 我已由 EXEC 的锚点信息归档 `_sessions/*.gz`（优先 `SESSION_MARKER_UTC`，不是让 EXEC 自己挑）
-- [ ] 归档时已检查 UUID 是否与其他 run共享（若共享，已标注 SHARED_SESSION）
+- [ ] 归档时已检查 UUID 是否与其他 run 共享（若共享，已标注 SHARED_SESSION）
 - [ ] 我已按事件流格式核验 toolCall/toolResult（不是只看报告文本）
 - [ ] 我已核验模型身份（系统元数据优先；EXEC 自述仅对账）并记录 Model consistency
 - [ ] 事件流抽查 ≥2，且包含 T3（git）（若 T3=SKIPPED，已改查最后一个非 SKIPPED 任务并注明原因）
@@ -369,7 +412,7 @@ sub0 在报告末尾必须保留以下区块，严禁填写分数：
 
 ---
 
-## 7) 统一评分体系引用
+## 6) 统一评分体系引用
 
 本 runbook 的评分规则引用自统一标准体系：
 
