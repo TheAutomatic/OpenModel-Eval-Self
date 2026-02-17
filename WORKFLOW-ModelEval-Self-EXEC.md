@@ -39,11 +39,11 @@
 
 ## 2) 统一任务（按派工 round 执行）
 
-### 2.0 执行骨架（sub2/sub3 必须遵守）
+### 2.0 执行骨架（sub1/sub2 必须遵守）
 - 必要输入：`run_id`、`round=<round>`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
 - 你只执行被分配的 round：
-  - sub2: `round=1`
-  - sub3: `round=2`
+  - sub1: `round=1`
+  - sub2: `round=2`
 - 交付物只允许写本轮文件：`exec_openclaw_run<run_id>_round<round>.md`。
 - 本轮 CLOSED 后立即停止，等待 REVIEW 后续调度；不得擅自启动下一轮。
 
