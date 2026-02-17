@@ -359,7 +359,7 @@ PY
 - D5 审计合规性: <0-20>      （依据：标签/逐点闭环/Fuse Checklist）
 - **Total: <0-100>**
 - **Rating: <S|A|B|C|F>**
-- 评分依据: SCORING-UNIVERSAL.md (最新版)
+- 评分依据: SCORING-UNIVERSAL.md
 ```
 
 > **Rating 校验（必须）**：填写 Rating 前必须查对 `SCORING-UNIVERSAL.md §3` 阈值表：90-100=S，75-89=A，60-74=B，40-59=C，<40=F。**禁止凭主观印象填写 Rating。**
