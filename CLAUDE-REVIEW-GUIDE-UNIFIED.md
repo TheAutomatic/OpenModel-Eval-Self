@@ -21,7 +21,7 @@ Claude 的职责只有三件事：
 
 ## 2) 通用输入（你给 Claude 的最小上下文）
 请至少提供：
-- 目标仓库：`projects/OpenModel-Eval-Self-repo`
+- 目标仓库：`projects/OpenModel-Eval-Self`
 - 评审规则入口：`WORKFLOW-ModelEval-Self-REVIEW.md`
 - 执行规则入口：`WORKFLOW-ModelEval-Self-EXEC.md`
 - 目标 run_id 列表（可口述）

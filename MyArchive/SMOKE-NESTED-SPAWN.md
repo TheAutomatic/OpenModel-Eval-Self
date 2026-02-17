@@ -35,7 +35,7 @@
 
 ### S5. 路径正确性
 - 产物必须落在：
-  `/home/ubuntu/.openclaw/workspace/projects/OpenModel-Eval-Self-repo/`
+  `/home/ubuntu/.openclaw/workspace/projects/OpenModel-Eval-Self/`
 - 若落到 workspace 根仓库（`/home/ubuntu/.openclaw/workspace/`）则判定 FAIL。
 
 ### S6. 失败可诊断
