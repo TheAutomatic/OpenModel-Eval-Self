@@ -68,10 +68,33 @@
 
 ## 5) 多模型评测策略（必须串行）
 
-若一次测多个模型，必须严格串行：
-1. 先完成模型1：`派 sub0.1 -> round1/round2 -> 收口报告`
-2. 再启动模型2：`派 sub0.2 -> round1/round2 -> 收口报告`
-3. 再启动模型3：`派 sub0.3 -> round1/round2 -> 收口报告`
+若一次测多个模型，必须严格串行，并遵循以下规范：
+
+### 5.1 批次命名与 Checklist（必须）
+Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/CHECKLIST_<Batch_ID>.md`。
+
+**ID 命名规范**：
+- **Batch ID**（大项目）：`BATCH_<YYYYMMDD>_<HHMM>_<Tag>` (例: `BATCH_20260217_1230_LongCat`)
+- **Run ID**（单次执行）：`<Batch_ID>_M<Seq>` (例: `BATCH_20260217_1230_LongCat_M1`)
+
+**Checklist 模板（Operator 独占维护）**：
+```markdown
+# CHECKLIST — <Batch_ID>
+
+## 模型 1：<Target Model ID> (Run: <Run_ID>)
+- [ ] sub0 启动 & 验模通过
+- [ ] Round 1 (sub1) 完成
+- [ ] Round 2 (sub2) 完成
+- [ ] 本模型汇总报告完成
+
+## 模型 2：<Target Model ID> (Run: <Run_ID>)
+...
+```
+
+### 5.2 串行执行流
+1. Operator 创建 Checklist。
+2. 启动模型 1（M1）：`派 sub0 -> round1/round2 -> 收口` -> **Operator 打勾**。
+3. 启动模型 2（M2）：`派 sub0 -> round1/round2 -> 收口` -> **Operator 打勾**。
 
 禁止并发：
 - 不得同时派多个 sub0 评不同模型。
