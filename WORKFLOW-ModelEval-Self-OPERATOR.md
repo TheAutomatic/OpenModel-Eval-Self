@@ -102,13 +102,31 @@
 
 ---
 
-## 8) 变更控制
+## 8) 验模异常归因与记录（判责必填）
+
+当出现模型回显异常、模型不一致或重派时，sub0 的最终报告必须包含归因标签（至少 1 个）：
+
+- `FAULT_OPERATOR_INPUT`：Operator 下发模型目标/参数错误。
+- `FAULT_SUB0_DISPATCH`：sub0 派发时模型参数传错、漏传或派发流程错误。
+- `FAULT_EXEC_RUNTIME`：sub1/sub2 运行时回显异常、执行偏差或环境导致异常。
+- `FAULT_SPEC_AMBIGUITY`：文档口径歧义导致执行分歧。
+
+记录格式建议：
+- `Attribution: <TAG>`
+- `Evidence: <关键证据（命令/回显/tool事件）>`
+- `Action: <已采取补救动作>`
+
+目的：让 Operator 能快速判定是“我说错了 / sub0 执行错了 / 需求没讲清楚”。
+
+---
+
+## 9) 变更控制
 
 - 先更新 `OPERATOR` 口径，再回写 `REVIEW`/`EXEC`。
 - 未经 Operator 明确确认，不改核心拓扑、重派上限与评分口径。
 
 ---
 
-## 9) 当前状态（迁移说明）
+## 10) 当前状态（迁移说明）
 
 本文件是 Operator 决策真相源。REVIEW/EXEC 需与本文件保持一致；若冲突，以本文件为准。
