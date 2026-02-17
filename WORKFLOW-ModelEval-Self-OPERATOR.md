@@ -1,5 +1,9 @@
 # WORKFLOW — ModelEval-Self（OPERATOR / 主会话决策层）
 
+> Version: `operator-v1.0`
+> Last Updated: `2026-02-17`
+> Status: `active`
+
 > 适用对象：Operator（你）+ 主会话助手（我）
 >
 > 目的：只定义“评测目标、约束、决策与验收口径”，不承载执行细节。

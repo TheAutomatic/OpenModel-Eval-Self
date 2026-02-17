@@ -1,5 +1,9 @@
 # WORKFLOW — ModelEval-Self（REVIEW / 主会话评审官手册 / DIRECT_EXEC 本地子孙模式）
 
+> Version: `review-v1.0-legacy-round`
+> Last Updated: `2026-02-17`
+> Status: `active (pending operator-aligned refactor)`
+
 > **Role**：SG_REVIEWER（主会话 / 评审官）
 >
 > ```yaml
