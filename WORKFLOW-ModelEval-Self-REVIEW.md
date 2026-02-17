@@ -115,11 +115,15 @@
 1) sub0 派发 sub1（仅 Round1，DIRECT_EXEC）：
    - 指令必须包含：`run_id`（填入本次 <Run_ID>）、`round=1`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
 
-1.1) 轻量验模（用于核对是否派错模型，非一票否决）：
+1.1) 轻量验模与异常分流（用于核对是否派错模型）：
    - sub1 开场需回显模型身份（如 `MODEL_ID_ECHO` / `model_change.modelId`）。
    - 若仅出现轻微字符串差异（大小写、provider 前缀、命名缩写差异），先记录 `MODEL_ECHO_WARNING`，继续执行并在 verdict 说明。
-   - 若明确为错误模型（例如回显为完全不同模型族），先**立即向 Operator 回报**（附回显证据与初步归因标签），再执行停止与重派；每轮最多重派 2 次。
-   - 回报优先级：`FAULT_OPERATOR_INPUT` > `FAULT_SUB0_DISPATCH` > `FAULT_EXEC_RUNTIME` > `FAULT_SPEC_AMBIGUITY`（可并列标注）。
+   - **若明确为错误模型（Mismatch）：**
+     1. **立即挂起任务**，向 Operator 汇报归因（附回显证据 + 初步判定是 `FAULT_OPERATOR_INPUT` 还是 `FAULT_EXEC_RUNTIME`）。
+     2. **等待 Operator 指令**：
+        - 若 Operator 回复“Kill/Restart”：立即终止，不重派孙子。
+        - 若 Operator 回复“Retry”：按 Runtime 异常处理，重派 sub1（上限 2 次）。
+   - 回报优先级：`FAULT_OPERATOR_INPUT` > `FAULT_SUB0_DISPATCH` > `FAULT_EXEC_RUNTIME` > `FAULT_SPEC_AMBIGUITY`。
 
 2) sub0 盯 checkpoint：
    - 仅接受 `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
