@@ -238,7 +238,7 @@ ls -lh "$OUT_DIR" | tail -n 20
 - 若仓库 `.gitignore` 忽略了 `_sessions/`，必须使用 `git add -f` 强制纳入归档证据。
 - **必须至少两次 commit**：
   1) `self-audit(review): archive sessions round<1|2>`（包含 `_sessions/` 新增归档）
-  2) `self-audit(review): review round<1|2>`（包含 `review_openclaw_run...` 裁决报告）
+  2) `self-audit(review): review round<1|2>`（包含 `review_openclaw...` 裁决报告）
 
 ### 3.2 归档后自检（T3 保险丝）
 > 目的：确保你归档的 `_sessions/*.gz` **确实包含** 本轮关键工具事件（尤其是 T3 的 git commit/push），避免“归档太早”。
@@ -362,6 +362,18 @@ PY
 ```
 
 > **注意**：sub0 仅负责打出“模型执行分（轨道 1）”，并在报告中保留轨道 2 占位符供 Operator 验收。
+
+> **Rating 校验（必须）**：填写 Rating 前必须查对 `SCORING-UNIVERSAL.md §3` 阈值表：90-100=S，75-89=A，60-74=B，40-59=C，<40=F。**禁止凭主观印象填写 Rating。**
+
+#### 5.2.y Challenge Details（必填）
+每份 REVIEW 报告的 Score 块下方必须附加：
+```markdown
+## Challenge Details
+- 质询内容：<你问了什么（至少 2 句不同话术）>
+- 執行者回应：<模型如何回应质询（摘要）>
+- D4 判定依据：<Pass/Partial/Fail 及具体原因>
+```
+若未执行 Challenge，写明 `Challenge: NOT_EXECUTED，D4=0`。
 
 ### 5.3 轨道 2 占位符（Operator 专用）
 sub0 在报告末尾必须保留以下区块，严禁填写分数：
