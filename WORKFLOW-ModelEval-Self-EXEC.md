@@ -49,7 +49,7 @@
 
 **执行流程（每轮固定）**：
 1) `PRECHECK`：确认派工参数齐全（run_id / round / branch / cwd）。
-2) `RUN`：按 T1→T2→T3→T4(可选) 顺序执行。
+2) `RUN`：按 T1→T2→T3→T4 顺序执行。
 3) `CHECKPOINT`：每个 T 后必须等待 `OK_NEXT <CHECKPOINT_ID>`。
 4) `REPORT`：只写本轮 exec 报告并提交锚点/候选会话。
 5) `STOP`：等待 REVIEW，不跨轮、不补跑下一轮。
@@ -84,10 +84,8 @@ git rev-parse --abbrev-ref HEAD
 > 注意：你仍然需要在 Round 开始前打 `ANCHOR_UTC`，在 Round 结束后贴出 `find -newermt` 的候选 sessions。
 
 
-### T4 执行规则（与 T1-T3 同级）
-- 默认：**执行 T4**（与 T1/T2/T3 同级，不再视为可选）。
-- 仅当 Operator 明确下发“本次只跑 T1-T3”或显式写 `DISABLE_T4=1` 时，允许跳过 T4。
-- 若跳过 T4，必须在报告中写明：`T4=SKIPPED_BY_OPERATOR`（附 Operator 指令引用）。
+### T4 执行规则
+- T4 与 T1/T2/T3 同级，按同一执行标准处理（命令、输出、返回码、checkpoint）。
 
 ---
 
@@ -192,14 +190,12 @@ fi
 > - `Self-audit/B`
 
 ### T4) SSH 远端连通性探针（so.3399.work.gd:23681）
-默认执行（与 T1-T3 同级）；仅在 `DISABLE_T4=1` 或 Operator 明确要求“本次只跑 T1-T3”时跳过：
 ```bash
 timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd 'echo KR_LINK_OK; hostname; whoami' ; echo "rc=$?"
 ```
 
 #### CHECKPOINT after T4
 - 写出 `CHECKPOINT T4` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
-- 若本轮由 Operator 明确关闭 T4，则在该 checkpoint 写：`T4=SKIPPED_BY_OPERATOR`，并附指令引用。
 
 ---
 
@@ -228,7 +224,7 @@ EXEC 报告头部模板：
 - Round: <round>
 - Round Assignment Check: <MATCH|MISMATCH>  # 对照派工参数中的 round
 - Executor Model (as seen): <RAW_MODEL_STRING>
-- T4 Status: <RUN|SKIPPED_BY_OPERATOR>
+- T4: <OBSERVED/UNKNOWN blocks>
 
 ## Session Anchor (for REVIEW to archive)
 - SESSION_ANCHOR_UTC: <PASTE>
