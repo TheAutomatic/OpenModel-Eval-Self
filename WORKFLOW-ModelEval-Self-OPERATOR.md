@@ -6,7 +6,7 @@
 
 > 适用对象：Operator（你）+ 主会话助手（我）
 >
-> 目的：只定义“评测目标、约束、决策与验收口径”，不承载执行细节。
+> 目的：只定义“评测目标、约束、决策与验收规则”，不承载执行细节。
 >
 > 执行细节请看：
 > - REVIEW：`WORKFLOW-ModelEval-Self-REVIEW.md`（给 sub0 编排/评审）
@@ -34,7 +34,7 @@
 1. Operator 派发 sub0（仅负责该模型）。
 2. sub0 派发 sub1 执行 round1（按 EXEC）。
 3. sub0 监督/质询 sub1，收集证据并完成 round1 评分。
-4. round1 收口后，sub0 派发 sub2 执行 round2（按 EXEC）。
+4. round1 完成本轮并停止继续派发后，sub0 派发 sub2 执行 round2（按 EXEC）。
 5. sub0 监督/质询 sub2，收集证据并完成 round2 评分。
 6. sub0 输出该模型最终汇总报告。
 
@@ -50,7 +50,7 @@
 - sub1/sub2 在执行开头必须回显模型身份（`MODEL_ID_ECHO` / 事件流 `model_change.modelId`）。
 - 验模用于发现“是否派错模型”，不因轻微字符串差异立即中止。
 - **若确认是错误模型族（Mismatch）：**
-  1. **sub0 动作**：立即挂起任务，向 Operator 汇报归因（是 Operator 发错了，还是孙子抽风了）。
+  1. **sub0 动作**：立即停止后续命令并等待指令，向 Operator 汇报归因（是 Operator 发错了，还是孙子抽风了）。
   2. **Operator 裁决**：
      - 若 **Operator 错**（参数发错）：直接 Kill sub0，修正后重开新 sub0。（孙子重派次数 = 0）
      - 若 **Runtime 错**（偶发抽风）：下令 sub0 重派孙子。
@@ -59,7 +59,7 @@
 - 仅在 Operator 确认“参数无误、是执行端问题”并下令重派时，才启用此规则。
 - **禁止 sub0 在未收到 Operator 明确 `Retry` 指令时自动重派。**
 - 每个角色（sub1 或 sub2）最多重派 2 次。
-- 超过上限仍失败：该轮判失败并收口，不伪造通过。
+- 超过上限仍失败：该轮判失败并完成本轮并停止继续派发，不伪造通过。
 
 ---
 
@@ -98,8 +98,8 @@ Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/C
 
 ### 5.2 串行执行流
 1. Operator 创建 Checklist。
-2. 启动模型 1（M1）：`派 sub0 -> round1/round2 -> 收口` -> **Operator 打勾**。
-3. 启动模型 2（M2）：`派 sub0 -> round1/round2 -> 收口` -> **Operator 打勾**。
+2. 启动模型 1（M1）：`派 sub0 -> round1/round2 -> 完成本轮并停止继续派发` -> **Operator 打勾**。
+3. 启动模型 2（M2）：`派 sub0 -> round1/round2 -> 完成本轮并停止继续派发` -> **Operator 打勾**。
 
 禁止并发：
 - 不得同时派多个 sub0 评不同模型。
@@ -122,7 +122,7 @@ Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/C
 
 ---
 
-## 6) 评分策略（Operator 口径）
+## 6) 评分策略（Operator 规则）
 
 每个模型至少输出：
 1. round1 单独评分
@@ -151,7 +151,7 @@ Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/C
 出现以下任一情况，可要求立即停止当前模型并纠偏：
 - sub0 未按 `sub1(round1) -> sub2(round2)` 顺序执行
 - 仅口头声称进入下一轮，但无工具事件证据
-- 开场验模失败却未按规则重派/收口
+- 开场验模失败却未按规则重派/完成本轮并停止继续派发
 - 多模型评测出现并发 sub0
 
 ---
@@ -163,7 +163,7 @@ Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/C
 - `FAULT_OPERATOR_INPUT`：Operator 下发模型目标/参数错误。
 - `FAULT_SUB0_DISPATCH`：sub0 派发时模型参数传错、漏传或派发流程错误。
 - `FAULT_EXEC_RUNTIME`：sub1/sub2 运行时回显异常、执行偏差或环境导致异常。
-- `FAULT_SPEC_AMBIGUITY`：文档口径歧义导致执行分歧。
+- `FAULT_SPEC_AMBIGUITY`：文档规则歧义导致执行分歧。
 
 记录格式建议：
 - `Attribution: <TAG>`
@@ -174,7 +174,7 @@ Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/C
 
 ### 8.1 Operator 纠错动作（必须）
 - 若归因为 `FAULT_OPERATOR_INPUT`：
-  1) Operator 立刻修正派工参数/口径；
+  1) Operator 立刻修正派工参数/规则；
   2) 关闭当前在跑的 sub0 进程（避免沿用错误上下文继续执行）；
   3) 重新派发一个新的 sub0，从该模型评测起点重开。
 
@@ -182,11 +182,11 @@ Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/C
 
 ## 9) 变更控制
 
-- 先更新 `OPERATOR` 口径，再回写 `REVIEW`/`EXEC`。
-- 未经 Operator 明确确认，不改核心拓扑、重派上限与评分口径。
+- 先更新 `OPERATOR` 规则，再回写 `REVIEW`/`EXEC`。
+- 未经 Operator 明确确认，不改核心拓扑、重派上限与评分规则。
 
 ---
 
 ## 10) 当前状态（迁移说明）
 
-本文件是 Operator 决策真相源。REVIEW/EXEC 需与本文件保持一致；若冲突，以本文件为准。
+本文件是 Operator 决策最终依据。REVIEW/EXEC 需与本文件保持一致；若冲突，以本文件为准。

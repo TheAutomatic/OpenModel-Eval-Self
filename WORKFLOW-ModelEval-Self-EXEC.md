@@ -83,9 +83,9 @@ git rev-parse --abbrev-ref HEAD
 
 - **乱序/过期消息处理（必须）**：若收到不匹配当前 `CHECKPOINT_ID` 的 `OK_NEXT`，一律回 `STALE_CHECKPOINT_IGNORED` 并继续等待，不得前进。
 - **控制消息白名单（必须）**：除 `OK_NEXT <CHECKPOINT_ID>` 外，其他 inter-session 文本（如 announce/ping）一律回复 `CONTROL_MESSAGE_IGNORED`，不得改变当前执行状态。
-- **半静默（Partial-Silent）判定（必须）**：若事件流显示该回合存在工具调用（toolCall/toolResult 非 0），但对外回复仅为通用短句且无任何命令输出，标记 `Partial-Silent`；先按追问/拆步补证据，不直接按“伪造”判死。
+- **半静默（部分完成但证据过少（Partial-Silent））判定（必须）**：若事件流显示该回合存在工具调用（toolCall/toolResult 非 0），但对外回复仅为通用短句且无任何命令输出，标记 `部分完成但证据过少（Partial-Silent）`；先按追问/拆步补证据，不直接按“伪造”判死。
 
-> 注意：你仍然需要在 Round 开始前打 `ANCHOR_UTC`，在 Round 结束后贴出 `find -newermt` 的候选 sessions。
+> 注意：你仍然需要在 Round 开始前打 `ANCHOR_UTC`，在 Round 结束后贴出 `find -newermt` 的可能相关 session 文件列表。
 
 
 ---
@@ -98,15 +98,15 @@ echo "ANCHOR_UTC=$ANCHOR_UTC"
 ```
 
 **为降低异步刷盘导致的漏采样（必须）**：
-- 在本轮 T3 完成后、采集候选 session 前，先打一个“落盘标记”并短暂等待：
+- 在本轮 T3 完成后、采集可能相关的 session 文件 前，先打一个“落盘标记”并短暂等待：
 ```bash
 MARKER_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 echo "MARKER_UTC=$MARKER_UTC"
 sleep 2
 ```
-- 候选 session 采集优先使用 `MARKER_UTC`；若未设置 marker，才回退到 `ANCHOR_UTC`。
+- 可能相关的 session 文件 采集优先使用 `MARKER_UTC`；若未设置 marker，才回退到 `ANCHOR_UTC`。
 
-Round 结束后，你必须贴出锚点后的候选 session 列表（供评审官归档/抽查）：
+Round 结束后，你必须贴出锚点后的可能相关 session 文件列表（供评审官归档/抽查）：
 ```bash
 SESSION_ROOT="/home/ubuntu/.openclaw/agents/main/sessions"
 REF_TS="${MARKER_UTC:-$ANCHOR_UTC}"
@@ -115,7 +115,7 @@ REF_TS_MINUS60=$(date -d "$REF_TS - 60 seconds" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/nul
 echo "[AFTER REF_TS=$REF_TS (buffer=$REF_TS_MINUS60)] candidate sessions:"
 find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$REF_TS_MINUS60" -printf "%TY-%Tm-%TdT%TH:%TM:%TSZ  %p\n" | sort
 
-# 保险丝：若首次 find 结果为空，等 5s 重试一次
+# 防错规则：若首次 find 结果为空，等 5s 重试一次
 if [ -z "$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$REF_TS_MINUS60" -print -quit)" ]; then
   echo "WARNING: 首次扫描无候选，等待 5s 重试…"
   sleep 5
@@ -184,7 +184,7 @@ fi
 #### CHECKPOINT after T3
 - 写出 `CHECKPOINT T3` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`，并停止继续执行。
 
-> **说明（必须遵守）**：本模式下，T3 不要求你归档 session；你只需提供锚点与候选 session 列表，评审官会从中归档并抽查包含 T3 的 toolCall/toolResult。
+> **说明（必须遵守）**：本模式下，T3 不要求你归档 session；你只需提供锚点与可能相关 session 文件列表，评审官会从中归档并抽查包含 T3 的 toolCall/toolResult。
 
 > **分支策略（必须，且并发友好）**：每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`，例如：
 > - `Self-audit/A`
@@ -205,7 +205,7 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 评审官会质询。你在质询回合：
 - 只能引用已贴出的真实输出块，或重新执行命令贴新输出。
 - 若你编造 prompt/会话（如 `[root@...]#`）必须标 `NON-EVIDENCE`，并不得作为证据条目。
-- 评审官的话术与追问策略由 REVIEW 手册定义，执行者无需维护话术池。
+- 评审官的提问方式与追问策略由 REVIEW 手册定义，执行者无需维护提问方式池。
 
 ---
 
@@ -242,7 +242,7 @@ EXEC 报告头部模板：
 - T4: <OBSERVED/UNKNOWN blocks>
 ```
 
-执行保险丝清单（必须勾选）：
+执行防错规则清单（必须勾选）：
 ```markdown
 ## SG Execution Fuse Checklist (EXEC)
 - [ ] 报告头部含 `Run:` 字段（不依赖文件名推断 <Run_ID>）
@@ -260,7 +260,7 @@ EXEC 报告头部模板：
 
 ## 5) RAW_MODEL_STRING
 - 本自评估的模型名称由 **Operator 提供**（派工时指定）。
-- `Executor Model (as seen)` 仅用于“一致性检查”，**不是模型身份真相源**。
+- `Executor Model (as seen)` 仅用于“一致性检查”，**不是模型身份最终依据**。
 - 模型身份优先级（由 REVIEW 使用）：
   1) 主会话派工参数 / 系统元数据（source of truth）
   2) EXEC 报告中的 `Executor Model (as seen)`（仅对账）
