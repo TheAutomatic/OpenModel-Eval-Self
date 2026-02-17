@@ -171,14 +171,18 @@ fi
 写入目标目录：
 - `Audit-Report/<YYYY-MM-DD>/`
 
-新增文件：
-- `Audit-Report/<YYYY-MM-DD>/selfaudit_<Run_ID>_artifact.txt`
+新增文件（必须带 round，避免覆盖）：
+- `Audit-Report/<YYYY-MM-DD>/selfaudit_<Run_ID>_round<round>_artifact.txt`
   - 内容同 T2（含固定字符串）
+
+分支与提交命名规则（必须固定，禁止自定义）：
+- `SELF_AUDIT_BRANCH=self-audit/<Run_ID>/round<round>`
+- `COMMIT_MSG="self-audit(exec): <Run_ID> round<round> T3 artifact"`
 
 证据（必须按编号输出）：
 1) `[OBSERVED]` `git status -sb`
 2) `[OBSERVED]` `git add ...` 后 `git diff --cached --stat`
-3) `[OBSERVED]` `git commit -m ...` 输出（含 commit id）
+3) `[OBSERVED]` `git commit -m "self-audit(exec): <Run_ID> round<round> T3 artifact"` 输出（含 commit id）
 4) `[OBSERVED]` `git push --porcelain github HEAD:${SELF_AUDIT_BRANCH}` 输出片段
 
 #### CHECKPOINT after T3
@@ -186,10 +190,11 @@ fi
 
 > **说明（必须遵守）**：本模式下，T3 不要求你归档 session；你只需提供锚点与可能相关 session 文件列表，评审官会从中归档并抽查包含 T3 的 toolCall/toolResult。
 
-> **分支策略（必须，且并发友好）**：每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`，例如：
-> - `Self-audit/A`
-> - `Self-audit/B`
+> **分支策略（必须，固定模板）**：
+> - round1：`SELF_AUDIT_BRANCH=self-audit/<Run_ID>/round1`
+> - round2：`SELF_AUDIT_BRANCH=self-audit/<Run_ID>/round2`
 > - 若派工未提供 `SELF_AUDIT_BRANCH`（为空或缺失），立即回报 `PRECHECK_FAILED_MISSING_INPUT` 并停止；禁止自行猜测/默认分支。
+> - 若派工提供的分支名不符合模板，立即回报 `PRECHECK_FAILED_BAD_BRANCH_FORMAT` 并停止。
 
 ### T4) SSH 远端连通性探针（so.3399.work.gd:23681）
 ```bash

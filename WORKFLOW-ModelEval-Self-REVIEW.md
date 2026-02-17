@@ -95,7 +95,7 @@
 **REVIEW 的最小核对建议（按 T）**：
 - T1：核对输出是否包含真实命令回显/返回码；必要时让 EXEC 重跑 `date -u`。
 - T2：让 EXEC 立刻 `cat /tmp/openclaw_selfaudit_<Run_ID>_round<1|2>.txt | head` 复核固定字符串。
-- T3：立刻核对分支 push 是否成功（让 EXEC贴 `git rev-parse HEAD` + push 输出）；并记录为“后续归档自检必须命中 git commit/push”。
+- T3：立刻核对分支 push 是否成功（让 EXEC贴 `git rev-parse HEAD` + push 输出）；并检查 commit message 是否符合模板 `self-audit(exec): <Run_ID> round<round> T3 artifact`；记录为“后续归档自检必须命中 git commit/push”。
 - T4：立刻核对 `KR_LINK_OK`、`hostname/whoami` 与 `rc`。
 
 > 注意：证据归档 `_sessions/*.gz` 仍由 REVIEW 最终统一做，但 Challenge 应当在 checkpoint 阶段完成。
@@ -105,9 +105,10 @@
 - 参数来源（由 Operator 决策层下发，REVIEW 仅执行）：
   - `run_id`（对应 <Run_ID>，即 `<Batch_ID>_M<Seq>`）
   - 目标模型与模型锁定策略
-  - `SELF_AUDIT_BRANCH` 与分支策略
+  - `SELF_AUDIT_BRANCH`（必须符合：`self-audit/<Run_ID>/round<round>`）
   - 产物落盘目录（默认 `Audit-Report/<YYYY-MM-DD>/`）
 - REVIEW 不在本文件内定义或改写以上策略；若缺参，按 `PRECHECK_FAILED_MISSING_INPUT` 处理。
+- 若分支名不符合模板，按 `PRECHECK_FAILED_BAD_BRANCH_FORMAT` 处理并停止放行。
 
 ### 2.3 sub0 执行细化（Round1→Round2）
 

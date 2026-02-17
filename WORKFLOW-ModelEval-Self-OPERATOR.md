@@ -68,6 +68,8 @@
 - 单任务超时：15 分钟
 - T4：`T4_REQUIRED=ON`（不可直接 SKIPPED）
 - 模型匹配：采用标准化匹配（忽略大小写，允许 provider 前缀差异）
+- 分支命名（固定模板）：`SELF_AUDIT_BRANCH=self-audit/<Run_ID>/round<round>`
+- 提交命名（固定模板）：`self-audit(exec): <Run_ID> round<round> T3 artifact`
 
 ---
 
