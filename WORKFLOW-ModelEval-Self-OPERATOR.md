@@ -129,12 +129,12 @@ Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/C
 
 1. **[sub0 职责]：打出“模型执行分”（轨道 1）**
    - sub0 负责评估孙代（sub1/sub2）的能力。
-   - 必须严格按 `SCORING-UNIVERSAL.md` 轨道 1 标准给出 D1-D5 分数。
+   - 必须严格对照 `SCORING-UNIVERSAL.md` **轨道 1** 标准，给出 D1-D5 原始分。
 
 2. **[Operator 职责]：打出“编排质量分”（轨道 2）**
-   - Operator 负责评估子代（sub0）的评审质量。
-   - Operator 审计报告中的记录合规性、证据归档完整性及门控执行情况。
-   - 轨道 2 最终结论由 Operator 在验收时手动填入或确认。
+   - Operator 负责评估子代（sub0）的评审表现。
+   - 必须严格对照 `SCORING-UNIVERSAL.md` **轨道 2** 标准，审计记录合规性、证据归档完整性及门控执行情况。
+   - 轨道 2 的 PASS/FAIL 结论由 Operator 在验收 sub0 报告时最终判定。
 
 评分原则：
 - 不把编排失误（轨道 2 故障）直接扣到模型执行分（轨道 1）上。
