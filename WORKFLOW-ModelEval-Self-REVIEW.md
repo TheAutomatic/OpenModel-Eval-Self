@@ -61,22 +61,22 @@
 ### 2.1 编排框架（必须）
 > 目标：固定职责、固定顺序、固定交付，先把“谁做什么”钉死。
 
-**固定拓扑**：`SG -> sub1(reviewer) -> sub2(exec round1), sub3(exec round2)`
+**固定拓扑**：`SG -> sub0(reviewer) -> sub1(exec round1), sub2(exec round2)`
 
 **角色职责**：
-- **sub1（reviewer）**：调度、质询、评分、归档、裁决（不代跑 EXEC 任务命令）
-- **sub2（executor round1）**：只执行 Round1（DIRECT_EXEC）
-- **sub3（executor round2）**：只执行 Round2（DIRECT_EXEC）
+- **sub0（reviewer）**：调度、质询、评分、归档、裁决（不代跑 EXEC 任务命令）
+- **sub1（executor round1）**：只执行 Round1（DIRECT_EXEC）
+- **sub2（executor round2）**：只执行 Round2（DIRECT_EXEC）
 
 **顺序门控（硬约束）**：
-1) sub1 先 spawn sub2，执行 Round1。
-2) Round1 未完成 `Challenge + 评分 + round1 verdict` 前，禁止 spawn sub3。
-3) Round1 CLOSED 后，sub1 再 spawn sub3 执行 Round2。
+1) sub0 先 spawn sub1，执行 Round1。
+2) Round1 未完成 `Challenge + 评分 + round1 verdict` 前，禁止 spawn sub2。
+3) Round1 CLOSED 后，sub0 再 spawn sub2 执行 Round2。
 
 **每轮统一交付物（必须）**：
-- `exec_openclaw_run<run_id>_roundX.md`（由 sub2/sub3 生成）
-- `review_openclaw_run<run_id>_roundX.md`（由 sub1 生成）
-- `_sessions/session_<run_id>_roundX__*.gz`（由 sub1 归档）
+- `exec_openclaw_run<run_id>_roundX.md`（由 sub1/sub2 生成）
+- `review_openclaw_run<run_id>_roundX.md`（由 sub0 生成）
+- `_sessions/session_<run_id>_roundX__*.gz`（由 sub0 归档）
 
 **状态门（简版）**：
 - `ROUND1: INIT -> RUNNING -> CHALLENGE -> SCORED -> CLOSED`
@@ -109,19 +109,19 @@
   - 产物落盘目录（默认 `Audit-Report/<YYYY-MM-DD>/`）
 - REVIEW 不在本文件内定义或改写以上策略；若缺参，按 `PRECHECK_FAILED_MISSING_INPUT` 处理。
 
-### 2.3 sub1 执行细化（Round1→Round2）
+### 2.3 sub0 执行细化（Round1→Round2）
 
-#### Phase R1（sub2）
-1) sub1 派发 sub2（仅 Round1，DIRECT_EXEC）：
+#### Phase R1（sub1）
+1) sub0 派发 sub1（仅 Round1，DIRECT_EXEC）：
    - 指令必须包含：`run_id`、`round=1`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
-2) sub1 盯 checkpoint：
+2) sub0 盯 checkpoint：
    - 仅接受 `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
    - 放行必须回复 `OK_NEXT <CHECKPOINT_ID>`，其余控制消息按忽略规则处理。
-3) sub1 完成 Round1 质询与评分：
+3) sub0 完成 Round1 质询与评分：
    - Challenge（≥2 句不同话术）
    - 写 `review_openclaw_run<run_id>_round1.md`
    - 归档 `_sessions/session_<run_id>_round1__*.gz`
-4) sub1 写入 round1 verdict：
+4) sub0 写入 round1 verdict：
    - 至少包含：`Result`、`Audit Completeness`、`Model consistency`。
 
 #### Phase Gate（R1→R2）
@@ -130,15 +130,15 @@
 - [ ] round1 归档已落盘且可抽查
 - [ ] round1 已完成 Challenge + 评分 + verdict
 
-#### Phase R2（sub3）
-1) sub1 派发 sub3（仅 Round2，DIRECT_EXEC）：
+#### Phase R2（sub2）
+1) sub0 派发 sub2（仅 Round2，DIRECT_EXEC）：
    - 指令必须包含：`run_id`、`round=2`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
-2) sub1 重复与 R1 相同的 checkpoint/Challenge/评分/归档流程。
+2) sub0 重复与 R1 相同的 checkpoint/Challenge/评分/归档流程。
 3) 写 `review_openclaw_run<run_id>_round2.md` 并给出 round2 verdict。
 
 #### 转述边界（DIRECT_EXEC）
-- 初次下发：sub2/sub3 必须直读 EXEC 原文，不得由 sub1 用“摘要任务书”替代。
-- 纠错/质询重做：允许 sub1 转述，但必须引用 EXEC 原文条款，并明确“缺失证据点/不合规点”；不得新增原文外目标。
+- 初次下发：sub1/sub2 必须直读 EXEC 原文，不得由 sub0 用“摘要任务书”替代。
+- 纠错/质询重做：允许 sub0 转述，但必须引用 EXEC 原文条款，并明确“缺失证据点/不合规点”；不得新增原文外目标。
 
 ### 2.4 Fail-Fast 判定表（评审官速裁）
 
@@ -146,7 +146,7 @@
 |---|---|---|
 | `PRECHECK_FAILED_MISSING_INPUT`（缺 run_id/round/branch） | 立即中止本轮，不放行下一 checkpoint | 在 REVIEW 报告 `Errata` 标注输入缺失项 |
 | `Round Assignment Check=MISMATCH` | 本轮判 `Fail` 或 `Partial`（按证据严重度），并禁止跨轮继续 | 在 TL;DR 明确 `Model/Round mismatch` |
-| Round1 未完成 Challenge+评分+verdict 就请求启动 Round2 | 拒绝启动 sub3，回复 `ROUND_GATE_DENIED` | 在 round1 报告注明 gate 拒绝原因 |
+| Round1 未完成 Challenge+评分+verdict 就请求启动 Round2 | 拒绝启动 sub2，回复 `ROUND_GATE_DENIED` | 在 round1 报告注明 gate 拒绝原因 |
 | 归档为 0 且生命周期日志不可用 | 直接标 `Audit Completeness=INCOMPLETE`，进入人工复核 | 标记 `NO_SESSION_EVIDENCE + LIFECYCLE_LOG_UNAVAILABLE` |
 | 事件流无 toolCall/toolResult 但文本声称命令输出 | 触发硬判伪造 | `Result=Fail` 且 D1 上限 4 |
 
@@ -386,8 +386,8 @@ PY
 ### 5.4 REVIEW 保险丝清单（必须勾选）
 ```markdown
 ## SG Review Fuse Checklist
-- [ ] 我已按顺序门控执行：sub2(round1) 完整裁决后才启动 sub3(round2)
-- [ ] 我已确保初次下发为 DIRECT_EXEC（sub2/sub3 直读 EXEC 原文）
+- [ ] 我已按顺序门控执行：sub1(round1) 完整裁决后才启动 sub2(round2)
+- [ ] 我已确保初次下发为 DIRECT_EXEC（sub1/sub2 直读 EXEC 原文）
 - [ ] 我已读取 EXEC 报告，并确认其头部含 `Run:` 字段
 - [ ] 我已由 EXEC 的锚点信息归档 `_sessions/*.gz`（优先 `SESSION_MARKER_UTC`，不是让 EXEC 自己挑）
 - [ ] 归档时已检查 UUID 是否与其他 run 共享（若共享，已标注 SHARED_SESSION）
