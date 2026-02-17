@@ -347,8 +347,8 @@ PY
 - 若系统元数据不可得：在 TL;DR 填 `SYSTEM_MODEL_METADATA_UNAVAILABLE`，并在 Errata 写明。
 - 若系统元数据与 EXEC 自述不一致：`Model consistency=MISMATCH`，本轮至少降级为 `Partial`（除非有更高等级硬失败）。
 
-#### 5.2.x 统一评分块（评审官核验后填写）
-> 评分维度与规则详见 `SCORING-UNIVERSAL.md`。自评估的取证映射见 `SCORING-MAPPING.md`。
+#### 5.2.x 统一评分块（评审官sub0 必填项）
+> 评分维度与规则详见 `SCORING-UNIVERSAL.md` 轨道 1。
 
 ```markdown
 ## Score (评审官填写)
@@ -360,6 +360,21 @@ PY
 - **Total: <0-100>**
 - **Rating: <S|A|B|C|F>**
 - 评分依据: SCORING-UNIVERSAL.md
+> **注意**：sub0 仅负责打出“模型执行分（轨道 1）”，并在报告中保留轨道 2 占位符供 Operator 验收。
+
+### 5.3 轨道 2 占位符（Operator 专用）
+sub0 在报告末尾必须保留以下区块，严禁填写分数：
+
+```markdown
+### 轨道 2：编排质量评定 (Orchestration Audit) - [Operator 专用]
+- 流程完整性: <待 Operator 填入 PASS/FAIL>
+- 证据归档: <待 Operator 填入 PASS/FAIL/INCOMPLETE>
+- 记录合规性: <待 Operator 填入 PASS/FAIL>
+- **编排结论: <待 Operator 确认>**
+```
+
+---
+
 ```
 
 > **Rating 校验（必须）**：填写 Rating 前必须查对 `SCORING-UNIVERSAL.md §3` 阈值表：90-100=S，75-89=A，60-74=B，40-59=C，<40=F。**禁止凭主观印象填写 Rating。**
@@ -374,7 +389,7 @@ PY
 ```
 若未执行 Challenge，写明 `Challenge: NOT_EXECUTED，D4=0`。
 
-### 5.3 关键判定规则
+### 5.4 关键判定规则
 - **硬判伪造**：若任何被抽查的关键回合在 session v3 事件流中 **不存在对应的 `toolCall/toolResult` 证据**（等效“无工具事件”），但 EXEC/回复文本中含“终端输出片段/命令输出/我执行了某命令” → `Result (audit)=Fail`。
 - **Partial-Silent 处置**：若事件流显示存在工具调用，但回复仅通用短句且无命令输出，标记 `Partial-Silent` 并要求补证据；未补齐前该任务不得判 Pass。
 - **工具调用否认检测**：若执行者口头声称“未调用工具”，但归档事件流显示存在 toolCall/toolResult，须在报告 `Errata` 或风险小节记录“自述与事件流冲突”。
@@ -391,7 +406,7 @@ PY
   - 系统记录显示已正常 terminate，但归档仍为空 → 优先归因为归档/审计链路故障
   - 若无生命周期记录可用：标记 `LIFECYCLE_LOG_UNAVAILABLE`，不得武断归咎单一执行体
 
-### 5.4 REVIEW 保险丝清单（必须勾选）
+### 5.5 REVIEW 保险丝清单（必须勾选）
 ```markdown
 ## SG Review Fuse Checklist
 - [ ] 我已按顺序门控执行：sub1(round1) 完整裁决后才启动 sub2(round2)
