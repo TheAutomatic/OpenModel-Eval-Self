@@ -32,11 +32,11 @@
 
 ### 0.1 你将看到的产物文件名
 - EXEC（subagent 执行报告）：
-  - `Audit-Report/<YYYY-MM-DD>/exec_openclaw_run<run_id>_round1.md`
-  - `Audit-Report/<YYYY-MM-DD>/exec_openclaw_run<run_id>_round2.md`
+  - `Audit-Report/<YYYY-MM-DD>/exec_<Run_ID>_round1.md`
+  - `Audit-Report/<YYYY-MM-DD>/exec_<Run_ID>_round2.md`
 - REVIEW（主会话验收报告，你输出）：
-  - `Audit-Report/<YYYY-MM-DD>/review_openclaw_run<run_id>_round1.md`
-  - `Audit-Report/<YYYY-MM-DD>/review_openclaw_run<run_id>_round2.md`
+  - `Audit-Report/<YYYY-MM-DD>/review_<Run_ID>_round1.md`
+  - `Audit-Report/<YYYY-MM-DD>/review_<Run_ID>_round2.md`
 
 ---
 
@@ -74,9 +74,9 @@
 3) Round1 CLOSED 后，sub0 再 spawn sub2 执行 Round2。
 
 **每轮统一交付物（必须）**：
-- `exec_openclaw_run<run_id>_roundX.md`（由 sub1/sub2 生成）
-- `review_openclaw_run<run_id>_roundX.md`（由 sub0 生成）
-- `_sessions/session_<run_id>_roundX__*.gz`（由 sub0 归档）
+- `exec_<Run_ID>_roundX.md`（由 sub1/sub2 生成）
+- `review_<Run_ID>_roundX.md`（由 sub0 生成）
+- `_sessions/session_<Run_ID>_roundX__*.gz`（由 sub0 归档）
 
 **状态门（简版）**：
 - `ROUND1: INIT -> RUNNING -> CHALLENGE -> SCORED -> CLOSED`
@@ -94,7 +94,7 @@
 
 **REVIEW 的最小核对建议（按 T）**：
 - T1：核对输出是否包含真实命令回显/返回码；必要时让 EXEC 重跑 `date -u`。
-- T2：让 EXEC 立刻 `cat /tmp/openclaw_selfaudit_<run_id>_round<1|2>.txt | head` 复核固定字符串。
+- T2：让 EXEC 立刻 `cat /tmp/openclaw_selfaudit_<Run_ID>_round<1|2>.txt | head` 复核固定字符串。
 - T3：立刻核对分支 push 是否成功（让 EXEC贴 `git rev-parse HEAD` + push 输出）；并记录为“后续归档自检必须命中 git commit/push”。
 - T4：立刻核对 `KR_LINK_OK`、`hostname/whoami` 与 `rc`。
 
@@ -103,7 +103,7 @@
 > **异步队列保险丝**：消息平台可能延迟回放旧 checkpoint；REVIEW 不得仅凭“最新收到的一条消息”放行，必须按 `CHECKPOINT_ID` 序列核对。
 
 - 参数来源（由 Operator 决策层下发，REVIEW 仅执行）：
-  - `run_id`
+  - `run_id`（对应 <Run_ID>，即 `<Batch_ID>_M<Seq>`）
   - 目标模型与模型锁定策略
   - `SELF_AUDIT_BRANCH` 与分支策略
   - 产物落盘目录（默认 `Audit-Report/<YYYY-MM-DD>/`）
@@ -113,7 +113,7 @@
 
 #### Phase R1（sub1）
 1) sub0 派发 sub1（仅 Round1，DIRECT_EXEC）：
-   - 指令必须包含：`run_id`、`round=1`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
+   - 指令必须包含：`run_id`（填入本次 <Run_ID>）、`round=1`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
 
 1.1) 轻量验模（用于核对是否派错模型，非一票否决）：
    - sub1 开场需回显模型身份（如 `MODEL_ID_ECHO` / `model_change.modelId`）。
@@ -126,8 +126,8 @@
    - 放行必须回复 `OK_NEXT <CHECKPOINT_ID>`，其余控制消息按忽略规则处理。
 3) sub0 完成 Round1 质询与评分：
    - Challenge（≥2 句不同话术）
-   - 写 `review_openclaw_run<run_id>_round1.md`
-   - 归档 `_sessions/session_<run_id>_round1__*.gz`
+   - 写 `review_<Run_ID>_round1.md`
+   - 归档 `_sessions/session_<Run_ID>_round1__*.gz`
 4) sub0 写入 round1 verdict：
    - 至少包含：`Result`、`Audit Completeness`、`Model consistency`。
 
@@ -139,9 +139,9 @@
 
 #### Phase R2（sub2）
 1) sub0 派发 sub2（仅 Round2，DIRECT_EXEC）：
-   - 指令必须包含：`run_id`、`round=2`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
+   - 指令必须包含：`run_id`（填入本次 <Run_ID>）、`round=2`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
 2) sub0 重复与 R1 相同的 checkpoint/Challenge/评分/归档流程。
-3) 写 `review_openclaw_run<run_id>_round2.md` 并给出 round2 verdict。
+3) 写 `review_<Run_ID>_round2.md` 并给出 round2 verdict。
 
 #### 转述边界（DIRECT_EXEC）
 - 初次下发：sub1/sub2 必须直读 EXEC 原文，不得由 sub0 用“摘要任务书”替代。
@@ -151,7 +151,7 @@
 
 | 触发条件 | 即时动作 | 记录要求 |
 |---|---|---|
-| `PRECHECK_FAILED_MISSING_INPUT`（缺 run_id/round/branch） | 立即中止本轮，不放行下一 checkpoint | 在 REVIEW 报告 `Errata` 标注输入缺失项 |
+| `PRECHECK_FAILED_MISSING_INPUT`（缺 <Run_ID>/round/branch） | 立即中止本轮，不放行下一 checkpoint | 在 REVIEW 报告 `Errata` 标注输入缺失项 |
 | `Round Assignment Check=MISMATCH` | 本轮判 `Fail` 或 `Partial`（按证据严重度），并禁止跨轮继续 | 在 TL;DR 明确 `Model/Round mismatch` |
 | `MODEL_ECHO_WARNING`（仅命名/前缀差异） | 记录告警并继续执行 | 在 verdict 标注“轻量验模告警（未中止）” |
 | 明确错误模型（非目标模型族） | 停止当前执行体并重派（每轮最多 2 次） | 在 Errata 记录重派次数与回显证据 |
@@ -167,7 +167,7 @@
 - Session 根目录：`/home/ubuntu/.openclaw/agents/main/sessions/`
 - 产物目录：`Audit-Report/<YYYY-MM-DD>/_sessions/`
 - 归档文件名（必须保留来源文件名以便审计复现）：
-  - `session_<run_id>_round<1|2>__<SOURCE_BASENAME>.gz`
+  - `session_<Run_ID>_round<1|2>__<SOURCE_BASENAME>.gz`
   - 说明：`<SOURCE_BASENAME>` 已经是 `*.jsonl`，额外只追加 `.gz`，避免出现 `jsonl.jsonl.gz`。
 
 ### 3.1 归档步骤
@@ -178,7 +178,7 @@
 
 2) 在本机执行归档（至少 2 个；默认归档参考时间后最新 3 个；若不足 2 则 INCOMPLETE）：
 ```bash
-RUN_ID="<run_id>"
+RUN_ID="<Run_ID>"
 ROUND="round<1|2>"    # round1 / round2
 ANCHOR_UTC="<paste from EXEC>"
 MARKER_UTC="<optional: paste from EXEC>"
@@ -243,18 +243,18 @@ ls -lh "$OUT_DIR" | tail -n 20
 ### 3.2 归档后自检（T3 保险丝）
 > 目的：确保你归档的 `_sessions/*.gz` **确实包含** 本轮关键工具事件（尤其是 T3 的 git commit/push），避免“归档太早”。
 
-对每个刚归档的 `session_<run_id>_roundX__*.gz`，执行以下任一自检（目标：确认**归档里包含 T3 的 commit + push 工具事件**；实现允许多种）：
+对每个刚归档的 `session_<Run_ID>_roundX__*.gz`，执行以下任一自检（目标：确认**归档里包含 T3 的 commit + push 工具事件**；实现允许多种）：
 
 **自检方案 1（快速 grep / 更鲁棒）**：
 ```bash
 # 目标：能在归档中找到 git commit 与 git push 相关的命令文本（不依赖精确字符串）
 # commit
-gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.gz \
+gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<Run_ID>_round<1|2>__*.gz \
   | grep -nE "git commit( |$)" \
   | head
 
 # push（允许有无 --porcelain）
-gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.gz \
+gzip -cd Audit-Report/<YYYY-MM-DD>/_sessions/session_<Run_ID>_round<1|2>__*.gz \
   | grep -nE "git push( |$)" \
   | head
 ```
@@ -283,7 +283,7 @@ def tool_exec_cmds(m):
       if isinstance(cmd,str) and cmd:
         yield cmd
 
-paths=sorted(glob.glob('Audit-Report/<YYYY-MM-DD>/_sessions/session_<run_id>_round<1|2>__*.gz'))
+paths=sorted(glob.glob('Audit-Report/<YYYY-MM-DD>/_sessions/session_<Run_ID>_round<1|2>__*.gz'))
 seen_commit=False
 seen_push=False
 
@@ -318,13 +318,13 @@ PY
 你必须为每一轮输出一份 REVIEW 报告（Round1 / Round2 各一份），并给出最终裁决。
 
 ### 5.1 REVIEW 报告文件名
-- `Audit-Report/<YYYY-MM-DD>/review_openclaw_run<run_id>_round1.md`
-- `Audit-Report/<YYYY-MM-DD>/review_openclaw_run<run_id>_round2.md`
+- `Audit-Report/<YYYY-MM-DD>/review_<Run_ID>_round1.md`
+- `Audit-Report/<YYYY-MM-DD>/review_<Run_ID>_round2.md`
 
 ### 5.2 TL;DR 模板
 ```markdown
 ## TL;DR (REVIEW)
-- Run: <run_id>
+- Run: <Run_ID>
 - Round: <1|2>
 - Model identity (system metadata): <requested_model / system-recorded model id | SYSTEM_MODEL_METADATA_UNAVAILABLE>
 - Executor model (claimed): <RAW_MODEL_STRING from EXEC>
@@ -381,7 +381,7 @@ PY
 - **转述边界（DIRECT_EXEC）**：初次任务下发禁止用“简化任务书”替代 EXEC 原文；仅在纠错/质询重做阶段允许转述，且必须可回指到 EXEC 原文条款，不得新增原文外目标。
 - **证据归档完整性**：
   - 若你无法从锚点候选里归档到 ≥2 个 session → `Audit Completeness=INCOMPLETE`。
-  - 若归档文件明显来自历史会话（timestamp 远早于锚点窗口或与 run_id 时间窗不符）→ `Audit Completeness=INCOMPLETE` 并写 Errata。
+  - 若归档文件明显来自历史会话（timestamp 远早于锚点窗口或与 <Run_ID> 时间窗不符）→ `Audit Completeness=INCOMPLETE` 并写 Errata。
   - **UUID 共享检测（必须）**：若归档的 session 文件 UUID 与 `_sessions/` 中另一个 run 的归档文件 UUID 相同，必须交叉对比两个文件内容：
     - 若前 N 行一致率 > 90%：标注 `SHARED_SESSION`，两个 run D1 均降至硬判上限 10
     - 在 Errata 注明：“本 run 与 run_XXXX 共享会话，独立性存疑”

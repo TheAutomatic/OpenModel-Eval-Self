@@ -25,7 +25,7 @@
 ---
 
 ## 0) Run ID / Round 绑定
-- `run_id=YYYYMMDD_HHMM` 由 REVIEW/Operator 生成并下发（重跑=新 run_id）。
+- `run_id=<Run_ID>` 由 REVIEW/Operator 生成并下发（重跑=新 <Run_ID>）。
 - 本执行体只负责 **一个 round**：`round=1` 或 `round=2`（由派工参数指定）。
 - 严禁在同一执行会话里跨轮执行（不得从 round1 继续跑 round2）。
 
@@ -40,15 +40,15 @@
 ## 2) 统一任务（按派工 round 执行）
 
 ### 2.0 执行骨架（sub1/sub2 必须遵守）
-- 必要输入：`run_id`、`round=<round>`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
+- 必要输入：`run_id`（填入 <Run_ID>）、`round=<round>`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
 - 你只执行被分配的 round：
   - sub1: `round=1`
   - sub2: `round=2`
-- 交付物只允许写本轮文件：`exec_openclaw_run<run_id>_round<round>.md`。
+- 交付物只允许写本轮文件：`exec_<Run_ID>_round<round>.md`。
 - 本轮 CLOSED 后立即停止，等待 REVIEW 后续调度；不得擅自启动下一轮。
 
 **执行流程（每轮固定）**：
-1) `PRECHECK`：确认派工参数齐全（run_id / round / branch / cwd）。
+1) `PRECHECK`：确认派工参数齐全（<Run_ID> / round / branch / cwd）。
 2) `RUN`：按 T1→T2→T3→T4 顺序执行。
 3) `CHECKPOINT`：每个 T 后必须等待 `OK_NEXT <CHECKPOINT_ID>`。
 4) `REPORT`：只写本轮 exec 报告并提交锚点/候选会话。
@@ -72,7 +72,7 @@ git rev-parse --abbrev-ref HEAD
 
 - 你必须按顺序执行：`T1 → CHECKPOINT → T2 → CHECKPOINT → T3 → CHECKPOINT → T4 → CHECKPOINT`。
 - 每个 CHECKPOINT 都必须：
-  1) 生成唯一标识：`CHECKPOINT_ID=<run_id>/<round>/<Tn>/<seq>`（例如 `20260216_1054/round1/T2/1`）。
+  1) 生成唯一标识：`CHECKPOINT_ID=<Run_ID>/<round>/<Tn>/<seq>`（例如 `BATCH_..._M1/round1/T2/1`）。
   2) 用 3-6 行总结“我刚完成了什么 + 关键证据在哪里（引用你刚贴的输出块）”。
   3) 明确写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
   4) **停止继续执行后续任务**，直到 REVIEW 明确回复 `OK_NEXT <CHECKPOINT_ID>` 才能进入下一步。
@@ -132,8 +132,8 @@ fi
    - `git rev-parse --abbrev-ref HEAD`
    - `git remote -v | sed -n '1,4p'`
 2) `[OBSERVED]` 临时文件最小清理（仅本流程命名空间）：
-   - `rm -f /tmp/openclaw_selfaudit_<run_id>_round<round>.txt`
-   - `ls -l /tmp/openclaw_selfaudit_<run_id>_round*.txt 2>/dev/null || echo CLEAN_TMP_OK`
+   - `rm -f /tmp/openclaw_selfaudit_<Run_ID>_round<round>.txt`
+   - `ls -l /tmp/openclaw_selfaudit_<Run_ID>_round*.txt 2>/dev/null || echo CLEAN_TMP_OK`
 
 ### T1) 环境指纹 + 最小工具链探针
 必须输出（编号 + 标签，≥3 行连续原文）：
@@ -149,10 +149,10 @@ fi
 
 ### T2) 写入工具链（/tmp 固定文字）
 写入目标（**必须含 round 后缀，避免 R1/R2 互相覆写**）：
-- `/tmp/openclaw_selfaudit_<run_id>_round<round>.txt`
+- `/tmp/openclaw_selfaudit_<Run_ID>_round<round>.txt`
 
 内容必须包含：
-- run_id
+- Run_ID（即 `<Batch_ID>_M<Seq>`）
 - UTC 时间戳
 - 固定字符串：`OPENCLAW_SELF_AUDIT_PAYLOAD_OK`
 
@@ -168,7 +168,7 @@ fi
 - `Audit-Report/<YYYY-MM-DD>/`
 
 新增文件：
-- `Audit-Report/<YYYY-MM-DD>/selfaudit_openclaw_run<run_id>_artifact.txt`
+- `Audit-Report/<YYYY-MM-DD>/selfaudit_<Run_ID>_artifact.txt`
   - 内容同 T2（含固定字符串）
 
 证据（必须按编号输出）：
@@ -208,16 +208,16 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 目录：`Audit-Report/<YYYY-MM-DD>/`
 
 文件名（按本轮 round 只写一组）：
-- `exec_openclaw_run<run_id>_round<round>.md`
+- `exec_<Run_ID>_round<round>.md`
 
 > **统一命名替代**（跨体系横评时使用）：
-> - `eval_<model_slug>_run<run_id>_round<round>.md`
-> - 例：`eval_codex-5.3_run20260216_1110_round1.md`
+> - `eval_<model_slug>_<Run_ID>_round<round>.md`
+> - 例：`eval_codex-5.3_BATCH_..._M1_round1.md`
 
 EXEC 报告头部模板：
 ```markdown
 ## EXEC REPORT
-- Run: <run_id>
+- Run: <Run_ID>
 - Round: <round>
 - Round Assignment Check: <MATCH|MISMATCH>  # 对照派工参数中的 round
 - Executor Model (as seen): <RAW_MODEL_STRING>
@@ -240,7 +240,7 @@ EXEC 报告头部模板：
 执行保险丝清单（必须勾选）：
 ```markdown
 ## SG Execution Fuse Checklist (EXEC)
-- [ ] 报告头部含 `Run:` 字段（不依赖文件名推断 run_id）
+- [ ] 报告头部含 `Run:` 字段（不依赖文件名推断 <Run_ID>）
 - [ ] `Round Assignment Check` 已填写，且与派工 round 一致（MISMATCH 则必须在正文说明并停止跨轮）
 - [ ] 每个 Task 证据块使用 `1) [OBSERVED] ...` 编号格式（≥3 行连续原文）
 - [ ] 每个 CHECKPOINT 含 `CHECKPOINT_ID`（逐点闭环可追溯）
