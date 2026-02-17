@@ -91,14 +91,20 @@ Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/C
 ...
 ```
 
-### 5.2 串行执行流
-1. Operator 创建 Checklist。
-2. 启动模型 1（M1）：`派 sub0 -> round1/round2 -> 收口` -> **Operator 打勾**。
-3. 启动模型 2（M2）：`派 sub0 -> round1/round2 -> 收口` -> **Operator 打勾**。
+### 5.3 产物路径与命名规范（必须）
+为确保审计链路可追溯，所有角色必须严格遵守以下路径规范：
 
-禁止并发：
-- 不得同时派多个 sub0 评不同模型。
-- 必须“做一个、收一份证据、再开下一个”。
+1. **[sub1/sub2 职责]：执行报告**
+   - 路径：`Audit-Report/<YYYY-MM-DD>/exec_<Run_ID>_round<1|2>.md`
+   - 内容：原始执行证据。
+
+2. **[sub0 职责]：评审报告（含轨道 1 评分）**
+   - 路径：`Audit-Report/<YYYY-MM-DD>/review_<Run_ID>_round<1|2>.md`
+   - 内容：质询记录、证据核验、轨道 1 分数。
+
+3. **[Operator 职责]：批次总表与轨道 2 审计**
+   - 路径：`Audit-Report/<YYYY-MM-DD>/CHECKLIST_<Batch_ID>.md`
+   - 内容：整批模型进度跟踪、对 sub0 的轨道 2 最终审计结论。
 
 ---
 

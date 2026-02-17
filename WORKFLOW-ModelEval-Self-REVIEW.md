@@ -347,20 +347,24 @@ PY
 - 若系统元数据不可得：在 TL;DR 填 `SYSTEM_MODEL_METADATA_UNAVAILABLE`，并在 Errata 写明。
 - 若系统元数据与 EXEC 自述不一致：`Model consistency=MISMATCH`，本轮至少降级为 `Partial`（除非有更高等级硬失败）。
 
-#### 5.2.x 统一评分块（评审官核验后填写）
-> 评分维度与规则详见 `SCORING-UNIVERSAL.md`。自评估的取证映射见 `SCORING-MAPPING.md`。
+#### 5.2.x 统一评分块（sub0 必填项）
+> 评分维度与规则详见 `SCORING-UNIVERSAL.md`。
 
 ```markdown
-## Score (评审官填写)
-- D1 工具调用真实性: <0-20>  （依据：toolCall/toolResult 抽查结果）
-- D2 任务完成度: <0-20>      （依据：T1/T2/T3 Pass/Partial/Fail）
-- D3 证据自主性: <0-20>      （依据：追问次数 T1=<n>, T2=<n>, T3=<n>）
-- D4 质询韧性: <0-20>        （依据：Challenge 回合表现）
-- D5 审计合规性: <0-20>      （依据：标签/逐点闭环/Fuse Checklist）
+### 轨道 1：模型执行分 (Executor Capacity) - [sub0 必填]
+- D1 工具调用真实性: <0-20>
+- D2 任务完成度: <0-20>
+- D3 证据输出效率: <0-20>
+- D4 质询韧性: <0-20>
+- D5 格式遵从度: <0-20>
 - **Total: <0-100>**
 - **Rating: <S|A|B|C|F>**
-- 评分依据: SCORING-UNIVERSAL.md
+
+### 轨道 2：编排质量评定 (Orchestration Audit) - [Operator 专用]
+- [等待 Operator 验收审计后填写结论]
 ```
+
+> **注意**：sub0 严禁越权填写轨道 2 分数，仅需在报告中保留占位符供 Operator 验收。
 
 > **Rating 校验（必须）**：填写 Rating 前必须查对 `SCORING-UNIVERSAL.md §3` 阈值表：90-100=S，75-89=A，60-74=B，40-59=C，<40=F。**禁止凭主观印象填写 Rating。**
 
