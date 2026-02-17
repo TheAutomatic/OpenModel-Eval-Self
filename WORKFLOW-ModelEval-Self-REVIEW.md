@@ -22,6 +22,7 @@
 >
 > **评分标准**：本 runbook 使用统一评分体系，详见 `SCORING-UNIVERSAL.md`。
 > 体系映射（自评估的取证方式如何映射到通用维度）见 `SCORING-MAPPING.md`。
+> **策略真相源**：`WORKFLOW-ModelEval-Self-OPERATOR.md`（若与本文件冲突，以 OPERATOR 为准）。
 
 ---
 
@@ -101,13 +102,12 @@
 >
 > **异步队列保险丝**：消息平台可能延迟回放旧 checkpoint；REVIEW 不得仅凭“最新收到的一条消息”放行，必须按 `CHECKPOINT_ID` 序列核对。
 
-- 生成 `run_id=YYYYMMDD_HHMM`（重跑=新 run_id）。
-- **模型策略（必须）**：
-  - 主会话（评审官）使用当前对话模型，不额外指定。
-  - subagent（执行者）模型由 Operator 派工时显式指定。
-- 产物写入：`Audit-Report/<YYYY-MM-DD>/`。
-- **并发分支策略（必须）**：若派多个执行者并发自评估，每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`（例如 `Self-audit/A`、`Self-audit/B`），避免 git push 冲突。
-- **单次 run 分支一致性（必须）**：同一个 `run_id` 的 EXEC 产物、REVIEW 报告、`_sessions` 归档必须落在同一 `SELF_AUDIT_BRANCH`；`main` 只接收最终合并结果。
+- 参数来源（由 Operator 决策层下发，REVIEW 仅执行）：
+  - `run_id`
+  - 目标模型与模型锁定策略
+  - `SELF_AUDIT_BRANCH` 与分支策略
+  - 产物落盘目录（默认 `Audit-Report/<YYYY-MM-DD>/`）
+- REVIEW 不在本文件内定义或改写以上策略；若缺参，按 `PRECHECK_FAILED_MISSING_INPUT` 处理。
 
 ### 2.3 sub1 执行细化（Round1→Round2）
 
