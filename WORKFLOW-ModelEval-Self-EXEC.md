@@ -1,5 +1,9 @@
 # WORKFLOW — ModelEval-Self（EXEC / subagent 执行版 / DIRECT_EXEC 本地子孙模式）
 
+> Version: `1.0`
+> Last Updated: `2026-02-17`
+> Status: `active`
+
 > **Role**：SG_EXECUTOR（subagent / 执行者）
 >
 > ```yaml
@@ -234,7 +238,7 @@ EXEC 报告头部模板：
 - T1: <OBSERVED/UNKNOWN blocks>
 - T2: <OBSERVED/UNKNOWN blocks>
 - T3: <OBSERVED/UNKNOWN blocks incl. git outputs>
-- T4 (optional): <OBSERVED/UNKNOWN blocks>
+- T4: <OBSERVED/UNKNOWN blocks>
 ```
 
 执行保险丝清单（必须勾选）：
