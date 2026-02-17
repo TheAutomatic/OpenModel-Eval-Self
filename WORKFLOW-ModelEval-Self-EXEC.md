@@ -84,9 +84,6 @@ git rev-parse --abbrev-ref HEAD
 > 注意：你仍然需要在 Round 开始前打 `ANCHOR_UTC`，在 Round 结束后贴出 `find -newermt` 的候选 sessions。
 
 
-### T4 执行规则
-- T4 与 T1/T2/T3 同级，按同一执行标准处理（命令、输出、返回码、checkpoint）。
-
 ---
 
 ## 2.2 每轮 Round 的时间锚点（DIRECT_EXEC 模式关键）
