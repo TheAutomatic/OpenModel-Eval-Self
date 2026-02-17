@@ -1,0 +1,5 @@
+run_id=20260217_083217B
+round=1
+utc=2026-02-17T00:35:23Z
+model=longcat/LongCat-Flash-Chat
+OPENCLAW_SELF_AUDIT_PAYLOAD_OK
