@@ -1,7 +1,7 @@
 # WORKFLOW — ModelEval-Self（OPERATOR / 主会话决策层）
 
 > Version: `1.0`
-> Last Updated: `2026-02-17`
+> Last Updated: `2026-02-18`
 > Status: `active`
 
 > 适用对象：Operator（你）+ 主会话助手（我）
@@ -57,6 +57,7 @@
 
 ### 3.2 孙代重派上限（仅限 Runtime 异常）
 - 仅在 Operator 确认“参数无误、是执行端问题”并下令重派时，才启用此规则。
+- **禁止 sub0 在未收到 Operator 明确 `Retry` 指令时自动重派。**
 - 每个角色（sub1 或 sub2）最多重派 2 次。
 - 超过上限仍失败：该轮判失败并收口，不伪造通过。
 
