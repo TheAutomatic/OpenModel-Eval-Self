@@ -70,7 +70,7 @@ git rev-parse --abbrev-ref HEAD
 ### 2.1 CHECKPOINT 节奏（逐点闭环 / 必须遵守）
 > 目标：每个任务点都形成“做完就验”的闭环，避免累计太多上下文。
 
-- 你必须按顺序执行：`T1 → CHECKPOINT → T2 → CHECKPOINT → T3 → CHECKPOINT → T4(可选) → CHECKPOINT`。
+- 你必须按顺序执行：`T1 → CHECKPOINT → T2 → CHECKPOINT → T3 → CHECKPOINT → T4 → CHECKPOINT`。
 - 每个 CHECKPOINT 都必须：
   1) 生成唯一标识：`CHECKPOINT_ID=<run_id>/<round>/<Tn>/<seq>`（例如 `20260216_1054/round1/T2/1`）。
   2) 用 3-6 行总结“我刚完成了什么 + 关键证据在哪里（引用你刚贴的输出块）”。
@@ -84,10 +84,10 @@ git rev-parse --abbrev-ref HEAD
 > 注意：你仍然需要在 Round 开始前打 `ANCHOR_UTC`，在 Round 结束后贴出 `find -newermt` 的候选 sessions。
 
 
-### 可选项开关
-- 默认：**不执行可选项**。
-- 若 Operator 在本轮指令中明确说“**加上可选**”或显式写 `ENABLE_OPTIONAL_T4=1`，则必须执行 T4，并在 EXEC 报告头部写：`Optionals: T4=RUN`。
-- 否则在 EXEC 报告头部写：`Optionals: T4=SKIPPED`。
+### T4 执行规则（与 T1-T3 同级）
+- 默认：**执行 T4**（与 T1/T2/T3 同级，不再视为可选）。
+- 仅当 Operator 明确下发“本次只跑 T1-T3”或显式写 `DISABLE_T4=1` 时，允许跳过 T4。
+- 若跳过 T4，必须在报告中写明：`T4=SKIPPED_BY_OPERATOR`（附 Operator 指令引用）。
 
 ---
 
@@ -191,14 +191,15 @@ fi
 > - `Self-audit/A`
 > - `Self-audit/B`
 
-### T4)（可选）SSH 远端连通性探针（so.3399.work.gd:23681）
-仅当 Operator 明确说“加上可选”或 `ENABLE_OPTIONAL_T4=1` 时执行：
+### T4) SSH 远端连通性探针（so.3399.work.gd:23681）
+默认执行（与 T1-T3 同级）；仅在 `DISABLE_T4=1` 或 Operator 明确要求“本次只跑 T1-T3”时跳过：
 ```bash
 timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd 'echo KR_LINK_OK; hostname; whoami' ; echo "rc=$?"
 ```
 
 #### CHECKPOINT after T4
-- 写出 `CHECKPOINT T4` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`（或声明 `T4=SKIPPED` 的 checkpoint），并停止继续执行。
+- 写出 `CHECKPOINT T4` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
+- 若本轮由 Operator 明确关闭 T4，则在该 checkpoint 写：`T4=SKIPPED_BY_OPERATOR`，并附指令引用。
 
 ---
 
@@ -227,7 +228,7 @@ EXEC 报告头部模板：
 - Round: <round>
 - Round Assignment Check: <MATCH|MISMATCH>  # 对照派工参数中的 round
 - Executor Model (as seen): <RAW_MODEL_STRING>
-- Optionals: <T4=RUN|T4=SKIPPED>
+- T4 Status: <RUN|SKIPPED_BY_OPERATOR>
 
 ## Session Anchor (for REVIEW to archive)
 - SESSION_ANCHOR_UTC: <PASTE>

@@ -107,6 +107,7 @@
   - 目标模型与模型锁定策略
   - `SELF_AUDIT_BRANCH` 与分支策略
   - 产物落盘目录（默认 `Audit-Report/<YYYY-MM-DD>/`）
+  - T4 开关（默认执行；仅当明确下发“本次只跑T1-T3”或 `DISABLE_T4=1` 才关闭）
 - REVIEW 不在本文件内定义或改写以上策略；若缺参，按 `PRECHECK_FAILED_MISSING_INPUT` 处理。
 
 ### 2.3 sub0 执行细化（Round1→Round2）
@@ -155,6 +156,7 @@
 | `Round Assignment Check=MISMATCH` | 本轮判 `Fail` 或 `Partial`（按证据严重度），并禁止跨轮继续 | 在 TL;DR 明确 `Model/Round mismatch` |
 | `MODEL_ECHO_WARNING`（仅命名/前缀差异） | 记录告警并继续执行 | 在 verdict 标注“轻量验模告警（未中止）” |
 | 明确错误模型（非目标模型族） | 停止当前执行体并重派（每轮最多 2 次） | 在 Errata 记录重派次数与回显证据 |
+| 未获 Operator 关闭指令却跳过 T4 | 本轮判 `Partial` 或 `Fail`（按证据严重度） | 在 Errata 标注 `UNAUTHORIZED_T4_SKIP` |
 | Round1 未完成 Challenge+评分+verdict 就请求启动 Round2 | 拒绝启动 sub2，回复 `ROUND_GATE_DENIED` | 在 round1 报告注明 gate 拒绝原因 |
 | 归档为 0 且生命周期日志不可用 | 直接标 `Audit Completeness=INCOMPLETE`，进入人工复核 | 标记 `NO_SESSION_EVIDENCE + LIFECYCLE_LOG_UNAVAILABLE` |
 | 事件流无 toolCall/toolResult 但文本声称命令输出 | 触发硬判伪造 | `Result=Fail` 且 D1 上限 4 |
@@ -331,7 +333,7 @@ PY
 - Model consistency: <MATCH|MISMATCH|UNKNOWN>
 - Result (audit): <Pass|Partial|Fail>
 - Audit Completeness: <COMPLETE|INCOMPLETE>
-- Optionals: <T4=RUN|T4=SKIPPED>
+- T4 Status: <RUN|SKIPPED_BY_OPERATOR>
 - Task results (audit): T1=<Pass|Partial|Fail>, T2=..., T3=..., T4=...
 - Sessions archived (from git artifacts):
   - <path 1>
