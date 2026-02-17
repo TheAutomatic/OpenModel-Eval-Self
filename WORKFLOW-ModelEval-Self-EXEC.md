@@ -1,7 +1,7 @@
 # WORKFLOW — ModelEval-Self（EXEC / subagent 执行版 / DIRECT_EXEC 本地子孙模式）
 
 > Version: `1.0`
-> Last Updated: `2026-02-17`
+> Last Updated: `2026-02-18`
 > Status: `active`
 
 > **Role**：SG_EXECUTOR（subagent / 执行者）
@@ -189,6 +189,7 @@ fi
 > **分支策略（必须，且并发友好）**：每个执行者必须使用不同的 `SELF_AUDIT_BRANCH`，例如：
 > - `Self-audit/A`
 > - `Self-audit/B`
+> - 若派工未提供 `SELF_AUDIT_BRANCH`（为空或缺失），立即回报 `PRECHECK_FAILED_MISSING_INPUT` 并停止；禁止自行猜测/默认分支。
 
 ### T4) SSH 远端连通性探针（so.3399.work.gd:23681）
 ```bash
