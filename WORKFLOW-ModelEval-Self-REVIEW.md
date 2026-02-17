@@ -158,7 +158,7 @@
 | `PRECHECK_FAILED_MISSING_INPUT`（缺 <Run_ID>/round/branch） | 立即中止本轮，不放行下一 checkpoint | 在 REVIEW 报告 `Errata` 标注输入缺失项 |
 | `Round Assignment Check=MISMATCH` | 本轮判 `Fail` 或 `Partial`（按证据严重度），并禁止跨轮继续 | 在 TL;DR 明确 `Model/Round mismatch` |
 | `MODEL_ECHO_WARNING`（仅命名/前缀差异） | 记录告警并继续执行 | 在 verdict 标注“轻量验模告警（未中止）” |
-| 明确错误模型（非目标模型族） | 停止当前执行体并重派（每轮最多 2 次） | 在 Errata 记录重派次数与回显证据 |
+| 明确错误模型（非目标模型族） | 立即挂起并上报 Operator（默认不自动重派）；仅在 Operator 明确 `Retry` 时才可重派（每轮最多 2 次） | 在 Errata 记录归因、指令与重派次数（如有） |
 | Round1 未完成 Challenge+评分+verdict 就请求启动 Round2 | 拒绝启动 sub2，回复 `ROUND_GATE_DENIED` | 在 round1 报告注明 gate 拒绝原因 |
 | 归档为 0 且生命周期日志不可用 | 直接标 `Audit Completeness=INCOMPLETE`，进入人工复核 | 标记 `NO_SESSION_EVIDENCE + LIFECYCLE_LOG_UNAVAILABLE` |
 | 事件流无 toolCall/toolResult 但文本声称命令输出 | 触发硬判伪造 | `Result=Fail` 且 D1 上限 4 |
@@ -198,13 +198,28 @@ ROUND1_END_UTC="<optional: round1 last checkpoint utc>"
 pick_files() {
   # 向前扩展 60s 缓冲，防止 session 创建略早于锚点
   REF_TS_MINUS60=$(date -d "$REF_TS - 60 seconds" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "$REF_TS")
+
+  # 可选白名单：优先仅归档 EXEC 报告里列出的候选（basename 换行列表）
+  # 例：SESSION_CANDIDATE_BASENAMES=$(printf '%s\n' "a.jsonl" "b.jsonl")
+  SESSION_CANDIDATE_BASENAMES="${SESSION_CANDIDATE_BASENAMES:-}"
+
   if [ "$ROUND" = "round2" ] && [ -n "${ROUND1_END_UTC:-}" ]; then
-    find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" \
+    BASE_LIST=$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" \
       -newermt "$REF_TS_MINUS60" -newermt "$ROUND1_END_UTC" -print0 \
-      | xargs -0 ls -1t | head -n 3
+      | xargs -r -0 ls -1t | head -n 3)
   else
-    find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$REF_TS_MINUS60" -print0 \
-      | xargs -0 ls -1t | head -n 3
+    BASE_LIST=$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$REF_TS_MINUS60" -print0 \
+      | xargs -r -0 ls -1t | head -n 3)
+  fi
+
+  if [ -n "$SESSION_CANDIDATE_BASENAMES" ]; then
+    printf '%s\n' "$BASE_LIST" | while read -r f; do
+      [ -z "$f" ] && continue
+      bn="$(basename "$f")"
+      printf '%s\n' "$SESSION_CANDIDATE_BASENAMES" | grep -Fxq "$bn" && echo "$f"
+    done
+  else
+    printf '%s\n' "$BASE_LIST"
   fi
 }
 
@@ -220,7 +235,7 @@ fi
 if [ "$(printf '%s\n' "$CANDIDATES" | sed '/^$/d' | wc -l)" -lt 2 ]; then
   WIDE_START=$(date -d "$REF_TS - 120 seconds" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "$REF_TS")
   echo "WARNING: 候选不足 2 个，fallback 到 ±120s 窗口 ($WIDE_START)"
-  CANDIDATES="$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$WIDE_START" -print0 | xargs -0 ls -1t | head -n 3 || true)"
+  CANDIDATES="$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$WIDE_START" -print0 | xargs -r -0 ls -1t | head -n 3 || true)"
 fi
 
 # 最终仍为 0 个：标记 NO_SESSION_EVIDENCE，D1 硬判上限 4
@@ -378,8 +393,6 @@ sub0 在报告末尾必须保留以下区块，严禁填写分数：
 ```
 
 ---
-
-```
 
 > **Rating 校验（必须）**：填写 Rating 前必须查对 `SCORING-UNIVERSAL.md §3` 阈值表：90-100=S，75-89=A，60-74=B，40-59=C，<40=F。**禁止凭主观印象填写 Rating。**
 
