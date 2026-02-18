@@ -1,6 +1,6 @@
 # WORKFLOW — ModelEval-Self（OPERATOR / 主会话决策层）
 
-> Version: `1.0`
+> Version: `1.1`
 > Last Updated: `2026-02-18`
 > Status: `active`
 
@@ -81,8 +81,16 @@
 Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/CHECKLIST_<Batch_ID>.md`。
 
 **ID 命名规范**：
-- **Batch ID**（大项目）：`BATCH_<YYYYMMDD>_<HHMM>_<Tag>` (例: `BATCH_20260217_1230_LongCat`)
-- **Run ID**（单次执行）：`<Batch_ID>_M<Seq>` (例: `BATCH_20260217_1230_LongCat_M1`)
+- **Batch ID**（大项目）：`BATCH_<YYYYMMDD>_<HHMM>_<Tag>`
+- **Run ID**（单次执行）：`<Batch_ID>_M<Seq>`
+
+#### 5.1.1 ID 强制生成规程（防幻觉协议）
+**严禁凭逻辑推理生成时间戳。** Operator 在定义 `Batch_ID` 前，必须强制执行物理取时：
+```bash
+# 必须使用此命令的回显作为 ID 的时间部分
+date +%Y%m%d_%H%M
+```
+若发现 ID 时间戳与 `ANCHOR_UTC` 物理时间偏差 > 10 分钟，该次评测视为 **逻辑溢出（Cognitive Drift）**，必须在 Checklist 中标注。
 
 **Checklist 模板（Operator 独占维护）**：
 ```markdown
@@ -140,6 +148,7 @@ Operator 必须在启动前创建状态跟踪文件 `Audit-Report/<YYYY-MM-DD>/C
 
 2. **[Operator 职责]：打出“编排质量分”（轨道 2）**
    - Operator 负责评估子代（sub0）的评审表现。
+   - **中断判定（Interruption Status）**：若任务中途停止，Operator 必须区分是 **“系统故障”** 还是 **“人工熔断”**。若为后者，应聚焦于停止前的表现进行审计，不因中断扣除 D2 完成度分。
    - 必须严格对照 `SCORING-UNIVERSAL.md` **轨道 2** 标准，审计记录合规性、证据归档完整性及门控执行情况。
    - 轨道 2 的 PASS/FAIL 结论由 Operator 在验收 sub0 报告时最终判定。
 
