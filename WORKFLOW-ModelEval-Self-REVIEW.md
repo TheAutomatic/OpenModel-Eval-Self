@@ -220,7 +220,7 @@ Q3（异常解释）：
 > 目标：不再压缩日志，直接搬运原始文本并生成 Markdown 实录，彻底解决 Claude/Windows 环境下的解压痛点。
 
 - Session 根目录：`/home/ubuntu/.openclaw/agents/main/sessions/`
-- 产物目录：`Audit-Report/`
+- 产物目录：`Audit-Report/<YYYY-MM-DD>/`
 - 原始日志存放：`Audit-Report/<YYYY-MM-DD>/raw_logs/`
 - 归档文件名规范：
   - 原始：`raw_<Run_ID>_round<1|2>_<bn>`
