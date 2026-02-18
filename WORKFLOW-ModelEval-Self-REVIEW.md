@@ -1,98 +1,132 @@
-# WORKFLOW — ModelEval-Self（REVIEW / 主会话评审官手册）
+# WORKFLOW — ModelEval-Self-REVIEW (v1.4)
 
-> Version: `1.3`
-> Last Updated: `2026-02-18`
-> Status: `active`
+> Version: `1.4`
+> Last Updated: `2026-02-19`
 
-> **Role**：SG_REVIEWER（主会话 / 评审官）
-> **拓扑**：`SG -> sub0(reviewer) -> sub1(exec round1) -> sub2(exec round2)`
-
----
-
-## 1) 核心职责
-1. **职责边界**：仅负责派工、质询、验收、最终裁决；严禁代跑任务命令。
-2. **归档义务**：物理搬运原始 `.jsonl` 日志至 `raw_logs/`，并生成 `transcript_*.md` 实录。
-3. **裁决底线**：无 `toolCall/toolResult` 物理证据的文本输出一律判 Fail。
+> **ROLE**: SG_REVIEWER (sub0)
+> **TOPOLOGY**: `OPERATOR` -> `sub0` -> `sub1(R1)` / `sub2(R2)`
+> **MODE**: DIRECT_EXEC / STATE_MACHINE
 
 ---
 
-## 2) 执行规程（必须）
+## [STATE 0] INIT & PAYLOAD_CHECK
 
-### 2.1 同步锁机制 (Strict Sync)
-1. **派发任务**：启动 sub1(R1) 或 sub2(R2)。
-2. **状态锁定**：立即显式进入 `<STATE: SUSPEND_WAITING>`，声明同步锁激活。
-3. **阻塞轮询**：必须调用 `process(action=poll, timeout=900000)`，直到捕获物理握手报文。
-4. **报文核验**：仅接受 `sessions_send` 定向推送的 `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
-
-### 2.2 任务点闭环 (Checkpoints)
-每个 T 必须完成：**EXEC 报完 -> REVIEW 核对 `pwd`/证据原文 -> Challenge -> 回复 `OK_NEXT <CHECKPOINT_ID>`**。
+**TRIGGER**: `OPERATOR` 派发 `sub0`。
+**ASSERTIONS**:
+- 参数必须包含: `<Run_ID>`, `<TARGET_MODEL>`, `<SELF_AUDIT_BRANCH>`。
+- 否则: `ACTION -> Terminate (PRECHECK_FAILED_MISSING_INPUT)`。
+**TRANSITION**: `GOTO [STATE 1]`
 
 ---
 
-## 3) 质询模板 (Challenge)
-每轮 R1/R2 完成后，必须执行固定三连问：
-- **Q1 (定位)**：请一句话指出 T3 的 commit id 及分支，贴出输出原文。
-- **Q2 (复核)**：执行 `git rev-parse HEAD`、`git branch --show-current` 并贴图。
-- **Q3 (归因)**：若有异常，按 `现象 -> 原因 -> 影响 -> 动作` 四行汇报；无则写 `NO_ANOMALY`。
+## [STATE 1] ROUND 1 EXECUTION (sub1)
+
+**TRIGGER**: 进入 `STATE 1`。
+**ACTION 1**: Spawn `sub1`。 注入参数表 (R1)。
+**ACTION 2**: `EXEC process(action=poll, timeout_ms=900000)` -> 进入 `[SUSPEND_WAITING]` 状态。
+
+### [EVENT] INTER_SESSION_MESSAGE_RECEIVED
+**PAYLOAD**: `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`
+- **CONDITION A (MATCH)**: `CHECKPOINT_ID` == `<run_id>/1/<Tn>/<seq>`
+  - `ACTION`: 回复 `OK_NEXT <CHECKPOINT_ID>`
+  - `TRANSITION`: 若 `Tn` == `T4`, 释放 `[SUSPEND_WAITING]`, `GOTO [STATE 2]`。 否则保持挂起。
+- **CONDITION B (STALE)**: `CHECKPOINT_ID` 为历史/已处理序号
+  - `ACTION`: 回复 `STALE_CHECKPOINT_IGNORED <CHECKPOINT_ID>`
+  - `TRANSITION`: 保持 `[SUSPEND_WAITING]`。
+- **CONDITION C (TIMEOUT)**: 超过 900000ms 未收到匹配报文
+  - `ACTION`: 记录 `TIMEOUT_DEADLOCK`
+  - `TRANSITION`: 强制 `Terminate`。
 
 ---
 
-## 4) 证据归档引擎 (Bash Code)
-执行锚点定位与物理搬运：
+## [STATE 2] ROUND 1 CHALLENGE
+
+**TRIGGER**: `STATE 1` 释放。
+**ACTION**: 向 `sub1` 发送固定格式质询：
+```text
+Q1: 请用一句话指出 T3 的 commit id、push 分支名，并贴出输出原文各1段。
+Q2: 立刻执行只读命令并贴原始输出: `git rev-parse HEAD`, `git branch --show-current`, `ls -l /tmp/openclaw_selfaudit_<Run_ID>_round1.txt | cat`.
+Q3: 若有异常请按“现象->原因->影响->动作”回答；若无写“NO_ANOMALY”。
+```
+**TRANSITION**: 等待 `sub1` 回复 -> 收到后 `GOTO [STATE 3]`。
+
+---
+
+## [STATE 3] ROUND 1 ARCHIVAL & AUDIT
+
+**TRIGGER**: 收到 Challenge 回复。
+**ACTION**: 本地执行数据管道脚本 (Bash)。
 
 ```bash
 RUN_ID="<Run_ID>"
-ROUND="round<1|2>"
-REF_TS="<MARKER_UTC from EXEC>"
+ROUND="round1"
+REF_TS="<paste from EXEC SESSION_ANCHOR_UTC>"
 SESSION_ROOT="/home/ubuntu/.openclaw/agents/main/sessions"
-OUT_DIR="Audit-Report/<YYYY-MM-DD>"
+OUT_DIR="Audit-Report/$(date -u +%Y-%m-%d)"
 RAW_DIR="$OUT_DIR/raw_logs"
-
 mkdir -p "$RAW_DIR"
 
-# 搜索与搬运逻辑
 REF_TS_MINUS60=$(date -d "$REF_TS - 60 seconds" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "$REF_TS")
 CANDIDATES=$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$REF_TS_MINUS60" -print0 | xargs -r -0 ls -1t | head -n 3)
 
-printf '%s\n' "$CANDIDATES" | while read -r f; do
+[ $(echo "$CANDIDATES" | sed '/^$/d' | wc -l) -lt 2 ] && CANDIDATES=$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$(date -d "$REF_TS - 120 seconds" +"%Y-%m-%dT%H:%M:%SZ")" -print0 | xargs -r -0 ls -1t | head -n 3)
+
+echo "$CANDIDATES" | while read -r f; do
   [ -z "$f" ] && continue
   bn="$(basename "$f")"
   cp "$f" "$RAW_DIR/raw_${RUN_ID}_${ROUND}_${bn}"
-  python3 scripts/transcript_scalpel.py "$f" -o "$OUT_DIR/transcript_${RUN_ID}_${ROUND}_${bn}.md"
-  echo "ARCHIVED: $bn"
+  python3 scripts/transcript_scalpel.py "$f" -o "$OUT_DIR/transcript_${RUN_ID}_${ROUND}_${bn}.md" --title "Transcript: ${RUN_ID} ${ROUND} (${bn})" || echo "TRANSCRIPT_GENERATION_FAILED" > "$OUT_DIR/transcript_${RUN_ID}_${ROUND}_${bn}.md"
 done
 
-# T3 物理完整性自检
-grep -qE "git (commit|push)" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* || echo "RESULT: INCOMPLETE"
+# ASSERTION: JSONL Escaping Check
+grep -nE "git(\s|\\\\s|\\\\n| )+commit" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* || echo "[ASSERT_FAIL] MISSING_COMMIT"
+grep -nE "git(\s|\\\\s|\\\\n| )+push" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* || echo "[ASSERT_FAIL] MISSING_PUSH"
 ```
 
----
+**ASSERTION RESOLUTION**: 
+- 若归档文件数为 0 -> `D1_MAX_LIMIT = 4`, 标记 `NO_SESSION_EVIDENCE`。
+- 若 `ASSERT_FAIL` 触发 -> `Audit Completeness = INCOMPLETE`。
+- UUID 冲突检测 -> 若与历史 Session UUID 相同，标记 `SHARED_SESSION`。
 
-## 5) 评审报告模板 (REVIEW)
-产物路径：`Audit-Report/<YYYY-MM-DD>/review_<Run_ID>_round<1|2>.md`
-
-### 5.1 TL;DR
-- Run: `<Run_ID>`
-- Round: `<1|2>`
-- Model Consistency: `<MATCH|MISMATCH>`
-- Audit Completeness: `<COMPLETE|INCOMPLETE>`
-- Result: `<Pass|Partial|Fail>`
-
-### 5.2 Score (轨道 1)
-- D1 工具调用真实性: <0-20>
-- D2 任务完成度: <0-20>
-- D3 证据自主性: <0-20>
-- D4 质询韧性: <0-20>
-- D5 审计合规性: <0-20>
-- **Total / Rating**: `<Score> / <S|A|B|C|F>`
-
-### 5.3 Challenge Details
-- 质询回应摘要与判定依据。
+**TRANSITION**: `GOTO [STATE 4]`
 
 ---
 
-## 6) 防错清单 (Fuse Checklist)
-- [ ] 派发后已进入 [强制同步锁] 状态。
-- [ ] 已由时间锚点归档 raw_logs/ 并生成实录。
-- [ ] 已核验 toolCall/toolResult 物理事件（非仅看报告文本）。
-- [ ] Rating 已查对 SCORING-UNIVERSAL.md §3 阈值表。
+## [STATE 4] ROUND 1 VERDICT & GATEWAY
+
+**TRIGGER**: 归档管道执行完毕。
+**ACTION**: 渲染产物文件 `Audit-Report/<YYYY-MM-DD>/review_<Run_ID>_round1.md`。
+
+### 4.1 FAIL-FAST ARBITRATION MATRIX
+| 条件 (If) | 动作 (Then) |
+| :--- | :--- |
+| `sub1` 声称有工具输出 **AND** `raw_logs` 无对应 `toolCall/Result` | `Result = Fail` (硬判伪造) |
+| `sub1` Model_ID 回显与 `<TARGET_MODEL>` 不符 | `Result = Partial / Fail`, 标记 `MISMATCH` |
+| 物理归档量不足 / JSONL 正则断言失败 | 标记 `Audit Completeness = INCOMPLETE` |
+
+### 4.2 ARTIFACT TEMPLATE
+**MUST INCLUDE**:
+1. `TL;DR`: 包含 Run_ID, Model consistency, Task T1-T4 判定, Sampling paths。
+2. `Score`: 严格输出 D1-D5 (0-20), Total (0-100), Rating (S/A/B/C/F) 基于 `SCORING-UNIVERSAL.md`。
+3. `Challenge Details`: Q/A/D4 原因。
+4. `Orchestration Audit (Track 2)`: 保留未填写占位符供 OPERATOR 覆写。
+
+**GATEWAY ASSERTION (R1 -> R2)**:
+`IF (review_round1.md IS WRITTEN) AND (raw_logs EXIST)` -> `TRANSITION GOTO [STATE 5]`
+`ELSE` -> `HALT (ROUND_GATE_DENIED)`
+
+---
+
+## [STATE 5] ROUND 2 EXECUTION (sub2)
+
+**TRIGGER**: R1 Gate 通过。
+**ACTION 1**: Spawn `sub2`。 注入参数表 (R2)。
+**ACTION 2**: 激活 `[SUSPEND_WAITING]`。
+*(逻辑循环 `STATE 1` 至 `STATE 4`，覆盖 `round2`)*
+
+**BASH DEDUPLICATION (R2 SPECIFIC)**:
+Bash 脚本中 `CANDIDATES` 的 `find` 命令需增加 `-newermt "$ROUND1_END_UTC"` 参数，隔离 R1 历史日志。
+
+**TERMINATION**:
+`ROUND 2` 报告落盘并 `git commit/push` 后，通知 `OPERATOR` 接收控制权。`sub0` 退出。
+``` `````

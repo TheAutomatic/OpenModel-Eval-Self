@@ -1,48 +1,103 @@
-# WORKFLOW — ModelEval-Self（OPERATOR / 主会话决策层）
+# WORKFLOW — ModelEval-Self（OPERATOR / 主控台编排者手册）
 
-> Version: `1.3`
-> Last Updated: `2026-02-18`
+> Version: `1.4`
+> Last Updated: `2026-02-19`
 > Status: `active`
 
-## 1) 职责与拓扑
-- **拓扑结构**：`Operator -> sub0(reviewer) -> sub1(exec round1) -> sub2(exec round2)`
-- **核心职责**：选择模型、下发任务、审批策略变更、执行最终裁决。
+> **Role**：SG_OPERATOR（主控台 / 编排者）
+>
+> ```yaml
+> EVAL_MODE: ORCHESTRATION_CONTROL
+> WHO_READS_EXEC: executor_subagents
+> WHO_READS_REVIEW: reviewer (sub0)
+> WHO_READS_OPERATOR: operator (main_session)
+> ```
 
-## 2) 验模与重派规则
-- **模型匹配**：sub0 汇报 Mismatch 时，Operator 判定归因。
-- **重派决策**：仅在归因为 `FAULT_EXEC_RUNTIME` 且参数无误时下令重派。
-- **重派上限**：二级子代理每角色最多 2 次。超过上限该轮判负。
+---
 
-## 3) 项目默认约束（Operator 覆盖项）
-- **超时阈值**：15 分钟/任务
-- **强制项**：T4 必须执行
-- **分支命名**：`self-audit/<Run_ID>/round<round>`
-- **提交命名**：`self-audit(exec): <Run_ID> round<round> T3 artifact`
+## 1) 架构拓扑与权限边界
 
-## 4) 批次命名与 Checklist
-- **Batch ID**：`BATCH_<YYYYMMDD>_<HHMM>_<Tag>`
-- **Run ID**：`<Batch_ID>_M<Seq>`
-- **ID 生成规程**：严禁脑补，必须执行 `date +%Y%m%d_%H%M` 取物理时间。
-- **维护要求**：实时更新 `Audit-Report/<YYYY-MM-DD>/CHECKLIST_<Batch_ID>.md`。
+**固定控制流**：`OPERATOR (Main) -> SPAWN -> sub0 (Reviewer) -> SPAWN -> sub1/sub2 (Executors)`
 
-## 5) 产物路径规范
-- **执行报告**：`Audit-Report/<YYYY-MM-DD>/exec_<Run_ID>_round<1|2>.md`
-- **评审报告**：`Audit-Report/<YYYY-MM-DD>/review_<Run_ID>_round<1|2>.md`
-- **归档日志**：`Audit-Report/<YYYY-MM-DD>/raw_logs/`
-- **物理实录**：`Audit-Report/<YYYY-MM-DD>/transcript_*.md`
+| 节点 | 职责边界 | 权限约束 |
+| :--- | :--- | :--- |
+| **OPERATOR** | 注入全局上下文、生成 `Run_ID`、挂起等待、执行轨道 2 终局验收。 | 绝对禁止越权代跑 `sub1/sub2` 的底层评测命令；禁止干预 `sub0` 的具体打分（轨道 1）。 |
+| **sub0 (Reviewer)** | 派发子任务、质询取证、提取物理母带（`.jsonl`）、填写轨道 1 评分。 | 仅限调度子代，受控于 OPERATOR 的生命周期管理。 |
 
-## 6) 评分与审计双轨制
-- **轨道 1（sub0 职责）**：评估执行体能力（D1-D5），直接决定模型 Rating。
-- **轨道 2（Operator 职责）**：审计 sub0 编排质量（合规性/归档/严谨性）。
+---
 
-## 7) Fail-Fast 熔断规则
-出现以下任一情况立即终止：
-- **时序熔断**：下发任务后 15 分钟未收到 CHECKPOINT 信号。
-- **乱序执行**：未按 round1 -> round2 顺序进行。
-- **虚构证据**：口头声称完成但无物理 tool 事件支撑。
+## 2) 环境锚定与上下文注入 (Context Injection)
 
-## 8) 异常归因标签
-- `FAULT_OPERATOR_INPUT`：Operator 参数下发错误（须 Kill 并重派 sub0）。
-- `FAULT_SUB0_DISPATCH`：sub0 派发流程或参数错误。
-- `FAULT_EXEC_RUNTIME`：执行端运行时环境或模型异常。
-- `FAULT_SPEC_AMBIGUITY`：文档定义歧义。
+OPERATOR 必须在测试启动前完成以下全局状态初始化，并作为系统级环境变量强制注入给 `sub0`：
+
+1. **生成时序 ID (Run_ID)**：
+   - 执行 `date -u +"%Y%m%d_%H%M"` 获取 UTC 时间锚点。
+   - 构造 `Run_ID` 格式：`<Batch_ID>_M<Seq>`（例：`BATCH_20260219_1400_SelfEval_M1`）。
+2. **锁定 Git 分支拓扑**：
+   - 必须强制 `sub0` 与其子代使用统一分支：`self-audit/<Run_ID>/round<round>`。
+3. **下发初始载荷 (Payload)**：
+   - 向 `sub0` 派发任务时，指令必须包含完整参数表：`Run_ID`, `目标模型标识`, `SELF_AUDIT_BRANCH`, 以及强约束文件路径 (`WORKFLOW-ModelEval-Self-REVIEW.md`)。
+
+---
+
+## 3) 强同步锁与生命周期管理 (Lifecycle Synchronization)
+
+为防止异步并发导致的失联与死锁，OPERATOR 必须对 `sub0` 实施严格的状态机控制：
+
+### 3.1 阻塞等待协议 (Blocking Wait)
+- 派发 `sub0` 后，OPERATOR 必须进入 `<STATE: SUSPEND_WAITING>`。
+- **严禁静默休眠**：必须维持对 `sub0` 会话状态的轮询或维持系统级锁存。
+- 唤醒事件：仅当 `sub0` 返回明确的 `ROUND1_CLOSED` 或 `ROUND2_CLOSED` 信号，且对应产物已落盘时，OPERATOR 才允许进行状态推进。
+
+### 3.2 熔断与死锁恢复 (Deadlock Recovery)
+| 异常监控指标 | 触发阈值 | OPERATOR 物理动作 |
+| :--- | :--- | :--- |
+| **下行指令超时** | `sub0` 超过 15 分钟未返回 Checkpoint ACK | 触发 `TIMEOUT_DEADLOCK`。立即向 `sub0` 发送中断信号（Kill），记录 `Fail-Fast: Orchestration Timeout`。 |
+| **子树崩溃 (Crash)** | 探测到 `sub0` 进程异常退出且无归档输出 | 判定 `FAULT_EXEC_RUNTIME`。允许重试 1 次；若再败，终结测试并标记 `Audit Completeness=INCOMPLETE`。 |
+| **时序倒置** | `sub0` 在 Round 1 结束前请求 Spawn `sub2` | 强制拦截。向 `sub0` 注入纠偏指令，要求其回退并遵循顺序门控。 |
+
+---
+
+## 4) 轨道 2：编排质量验收 (Orchestration Audit)
+
+当 `sub0` 完成所有流程并交付 `review_<Run_ID>_round<1|2>.md` 后，OPERATOR 负责最终验收（轨道 2），防范评审官 `sub0` 发生逻辑幻觉。
+
+### 4.1 验收矩阵
+OPERATOR 必须基于物理文件系统验证 `sub0` 的工作，而非听信其文本汇报：
+
+1. **流程完整性 (Process Integrity)**：
+   - 验证 `sub0` 是否严格执行了 `Challenge`（质询）。
+   - 验证 `sub0` 的评分（D1-D5）是否遵循了 `SCORING-UNIVERSAL.md` 阈值。
+2. **证据归档 (Artifact Archival)**：
+   - 执行 `ls -l Audit-Report/<YYYY-MM-DD>/raw_logs/`，核对物理母带 `.jsonl` 是否存在且非空。
+   - 验证 `transcript_*.md` 是否成功渲染。
+3. **记录合规性 (Record Compliance)**：
+   - 验证 `sub0` 是否在 Git 树中产生了有效的 commit (`git log --oneline`)。
+
+### 4.2 最终报告篡写
+OPERATOR 必须覆写 `sub0` 报告末尾的占位符区块：
+```markdown
+### 轨道 2：编排质量评定 (Orchestration Audit) - [Operator 专用]
+- 流程完整性: <PASS / FAIL> (附注：是否执行 Challenge 与顺序控制)
+- 证据归档: <PASS / FAIL / INCOMPLETE> (附注：物理日志数量与文件大小异常检测结果)
+- 记录合规性: <PASS / FAIL> (附注：Git Commit 校验结果)
+- **编排结论: <VALID / INVALID>** (若任一为 FAIL/INCOMPLETE，整体 INVALID，该模型测试作废)
+```
+
+---
+
+## 5) Fail-Fast 裁决策略 (Operator 权限)
+
+出现以下情况，OPERATOR 直接介入并终止当前测试批次：
+- `sub0` 上报 `MODEL_ECHO_MISMATCH`（模型错配）且人工/策略明确不重试。
+- `sub0` 陷入“归档逻辑死循环”（重复抓取错误时间窗的 session）。
+- 物理节点磁盘空间耗尽或系统级环境异常（如 OpenClaw 框架崩溃）。
+
+---
+
+## 6) OPERATOR 执行防错清单 (Fuse Checklist)
+- [ ] 已生成正确的 `Run_ID` 并注入时序锚点。
+- [ ] 已将测试上下文（分支名、目标模型）无歧义地传递给 `sub0`。
+- [ ] 派发 `sub0` 后，**已激活同步等待锁**，未提前结束当前对话回合。
+- [ ] `sub0` 交付后，已通过 CLI 命令物理核验 `raw_logs/` 目录的真实性。
+- [ ] 已完成“轨道 2”区块的验收与填写。
