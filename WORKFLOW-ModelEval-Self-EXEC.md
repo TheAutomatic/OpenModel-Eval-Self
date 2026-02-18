@@ -17,7 +17,7 @@
 ---
 
 ## 0) Run ID / Round 绑定
-- `run_id=<Run_ID>` 与本轮执行的 `round` (`1` 或 `2`) 由派工参数指定。
+- `RUN_ID=<Run_ID>` 与本轮执行的 `ROUND` (`1` 或 `2`) 由派工参数指定。
 - 严禁在同一会话里跨轮执行。
 
 ---
@@ -36,7 +36,7 @@
 PROJECT_CWD="/home/ubuntu/.openclaw/workspace/projects/OpenModel-Eval-Self"
 cd "$PROJECT_CWD" || { echo "CRITICAL_ERROR: Cannot cd to $PROJECT_CWD"; exit 1; }
 
-echo "RUN_ID=${run_id:-<missing>} ROUND=${round:-<missing>} BRANCH=${SELF_AUDIT_BRANCH:-<missing>}"
+echo "RUN_ID=${RUN_ID:-<missing>} ROUND=${ROUND:-<missing>} BRANCH=${SELF_AUDIT_BRANCH:-<missing>}"
 pwd
 git rev-parse --abbrev-ref HEAD
 ```
@@ -46,7 +46,7 @@ git rev-parse --abbrev-ref HEAD
 每一组工具调用必须确保在 `/home/ubuntu/.openclaw/workspace/projects/OpenModel-Eval-Self` 下执行。严禁依赖隐式 `cwd`。严禁在根目录执行 Git 指令。
 
 ### 1.2 CHECKPOINT 跨会话握手协议
-- 每个 CHECKPOINT 必须生成唯一标识：`CHECKPOINT_ID=<Run_ID>/<round>/<Tn>/<seq>`。
+- 每个 CHECKPOINT 必须生成唯一标识：`CHECKPOINT_ID=<RUN_ID>_<ROUND>_<Tn>`。
 - 必须使用 `sessions_send` 工具定向 Push 给 Reviewer，明确写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
 - **阻塞等待**：必须停止执行后续任务，直到 Reviewer 明确回复 `OK_NEXT <CHECKPOINT_ID>`。
 - **防乱序**：若收到不匹配当前 ID 的 `OK_NEXT`，回 `STALE_CHECKPOINT_IGNORED` 并继续等待。
