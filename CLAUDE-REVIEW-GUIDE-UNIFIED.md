@@ -45,17 +45,11 @@ Claude 的核心任务：
    - **评审报告 (判定)**：`review_<Run_ID>_round1.md`（若已存在）
 5. 核对 `raw_logs/` 中的原始 `.jsonl`（物理证据）：
    - 检查 UUID 是否跨 run 重复（SHARED_SESSION 检测）
-6. 执行**全量**事件流审查（必须覆盖所有归档文件，禁止抽查）
+6. 执行全量事件流审查（必须覆盖所有归档文件，禁止抽查）
 
 ---
 
-## 3.1) 事件流脚本
-推荐命令：
-
-```bash
-python3 /home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py Audit-Report/<date>/raw_logs > audit_report.txt
-```
-
+## 3.1) 事件流审查
 关键判读：
 - 若 `git commit` / `git push` 在目标轮次零命中，至少标记 `INCOMPLETE`，并要求补归档窗口说明。
 - 若出现“报告有终端输出，但事件流无对应工具事件”，按高风险处理（至少 Partial，必要时 Fail）。
