@@ -27,10 +27,10 @@ Claude 的核心任务：
 - 目标仓库：`projects/OpenModel-Eval-Self`
 - 评审规则入口：`WORKFLOW-ModelEval-Self-REVIEW.md`
 - 执行规则入口：`WORKFLOW-ModelEval-Self-EXEC.md`
-- 目标 run_id 列表（可口述）
+- 目标 run_id 列表（可口述，符合 `BATCH_<YYYYMMDD>_<HHMM>_<Tag>_M<Seq>` 规范）
 
 > 你可以只口述：
-> - “请审 run 1607、1610、1636、1639、0858”
+> - “请审 BATCH_20260218_1448_SelfEval_M1”
 > Claude 应按该列表自动定位 `Audit-Report/<date>/` 下对应的 exec/review/会话归档。
 
 ---
@@ -40,10 +40,10 @@ Claude 的核心任务：
 2. 读 EXEC 手册（执行约束）
 3. 读评分标准：`SCORING-UNIVERSAL.md`（阈值表）+ `SCORING-MAPPING.md`（取证映射）
 4. 读目标 run 的：
-   - `exec_openclaw_run<run_id>_round1.md`（确认 `Run:` 字段存在）
-   - `exec_openclaw_run<run_id>_round2.md`
-   - `review_openclaw_run<run_id>_round1.md`（若已存在）
-   - `review_openclaw_run<run_id>_round2.md`（若已存在）
+   - `exec_<Run_ID>_round1.md`（确认头部含 `Run:` 字段）
+   - `exec_<Run_ID>_round2.md`
+   - `review_<Run_ID>_round1.md`（若已存在）
+   - `review_<Run_ID>_round2.md`（若已存在）
 5. 核对 `_sessions/*.gz`（若存在）
    - 检查 UUID 是否跨 run 重复（SHARED_SESSION 检测）
 6. 用 `full_session_audit.py` 做**全量**事件流审查（必须覆盖所有归档文件，禁止抽查）
@@ -79,6 +79,18 @@ python3 /home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py Audit-Rep
 3. **闭环完整性分析**：
    - 为什么流程会中断？（如：评审官走神、信号丢失）。
    - Runbook 有没有定义“超时重报”或“状态注册”机制？
+
+## 3.3) Operator 审计 (Operator Audit)
+作为最高决策层，Operator 的失误是导致后续链路连锁崩塌的主因。必须审计以下项：
+
+1. **ID 真实性核验**：
+   - 检查 `Batch_ID` 与 `Run_ID` 中的时间戳。
+   - 要求：比对报告中的物理时间锚点。若出现 ID（如 1448）与实际时间（如 11:13）脱节，判定为 **Operator 逻辑幻觉**。
+2. **状态核验严谨性**：
+   - 检查 Operator 在启动任务前是否执行了 `ls` 或 `read` 确认 Runbook 版本。
+   - 判定：若 Operator 凭记忆盲目派发旧指令，属于 **Operator 规程违背**。
+3. **干预有效性**：
+   - 当 sub0/sub1 陷入僵局时，Operator 是否及时执行了 `sessions_send` 等“强制除颤”操作。
 
 Windows 兼容提示：
 - 不依赖 `gzip/zcat`，脚本使用 Python 内置 gzip。
@@ -120,6 +132,10 @@ Windows 兼容提示：
    - 同一 UUID 是否出现在多个不同 run 的归档中；若命中需交叉比对内容
 8. **Challenge Details 可复核性**（v1.1 新增）
    - D4 得分是否有对应的质询记录；无记录则 D4 不可复核，应标注
+9. **Operator 决策盲目性**（v1.2 新增）
+   - 严禁 Operator 在未读取 Runbook 最新版本的情况下凭记忆下令。
+10. **ID 溯源性**（v1.2 新增）
+    - ID 中的时间戳必须与物理执行时间一致，严禁脑补 ID。
 
 ---
 
@@ -142,11 +158,12 @@ Claude 的输出必须按以下结构提供加固建议：
 ## 7) 推荐给 Claude 的任务模板（可直接复制）
 
 ```markdown
-请按 `CLAUDE-REVIEW-GUIDE-UNIFIED.md` v1.2 审计以下 runs：<run_id 列表>。
+请按 `CLAUDE-REVIEW-GUIDE-UNIFIED.md` v1.2 审计以下 runs：<Batch_ID 或 Run_ID 列表>。
 你的核心任务是进行“架构诊断”：
 1) 不要只告诉我模型错在哪，告诉我 Runbook 里的哪一句话诱导了错误的发生。
 2) 针对发现的“路径穿透”、“脑补 ID”或“信号丢失”等风险，提供具体的 Runbook 加固补丁。
-3) 提供 MUST FIX (架构级) / SHOULD IMPROVE / NIT 建议。
+3) 对 Operator (Moss) 的决策严谨性进行审计（是否脑补 ID、是否凭记忆下令）。
+4) 提供 MUST FIX (架构级) / SHOULD IMPROVE / NIT 建议。
 ```
 
 ---
