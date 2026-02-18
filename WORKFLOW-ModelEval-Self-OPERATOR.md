@@ -1,6 +1,6 @@
 # WORKFLOW — ModelEval-Self（OPERATOR / 主会话决策层）
 
-> Version: `1.1`
+> Version: `1.2`
 > Last Updated: `2026-02-18`
 > Status: `active`
 
@@ -160,6 +160,7 @@ date +%Y%m%d_%H%M
 
 出现以下任一情况，可要求立即停止当前模型并纠偏：
 - sub0 未按 `sub1(round1) -> sub2(round2)` 顺序执行
+- **[时序熔断]** sub0 下发任务后，超过系统设定阈值（默认 15 分钟）未收到 sub1/sub2 的 CHECKPOINT 信号，陷入死锁。判定为调度失败，应 Kill 进程并重试或归因。
 - 仅口头声称进入下一轮，但无工具事件证据
 - 开场验模失败却未按规则重派/完成本轮并停止继续派发
 - 多模型评测出现并发 sub0

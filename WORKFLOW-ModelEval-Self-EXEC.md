@@ -1,6 +1,6 @@
 # WORKFLOW — ModelEval-Self（EXEC / subagent 执行版 / DIRECT_EXEC 本地子孙模式）
 
-> Version: `1.0`
+> Version: `1.1`
 > Last Updated: `2026-02-18`
 > Status: `active`
 
@@ -82,18 +82,18 @@ git rev-parse --abbrev-ref HEAD
 - 若发现当前路径不在 `projects/OpenModel-Eval-Self` 下且无法切换，必须立即停止并上报 `PATH_LOCK_FAILED`。
 
 ### 2.1 CHECKPOINT 节奏（逐点闭环 / 必须遵守）
-> 目标：每个任务点都形成“做完就验”的闭环，避免累计太多上下文。
+> 目标：每个任务点都形成“做完就验”的闭环，通过物理握手同步状态。
 
 - 你必须按顺序执行：`T1 → CHECKPOINT → T2 → CHECKPOINT → T3 → CHECKPOINT → T4 → CHECKPOINT`。
 - 每个 CHECKPOINT 都必须：
   1) 生成唯一标识：`CHECKPOINT_ID=<Run_ID>/<round>/<Tn>/<seq>`（例如 `BATCH_..._M1/round1/T2/1`）。
   2) 用 3-6 行总结“我刚完成了什么 + 关键证据在哪里（引用你刚贴的输出块）”。
-  3) 明确写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
+  3) **[跨会话握手]** Checkpoint 物理落盘后，必须使用 `sessions_send` 工具将带有 `CHECKPOINT_ID` 的状态变迁报文定向 Push 给主会话（Reviewer），明确写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。不得仅依赖标准输出。
   4) **停止继续执行后续任务**，直到 REVIEW 明确回复 `OK_NEXT <CHECKPOINT_ID>` 才能进入下一步。
 
 - **乱序/过期消息处理（必须）**：若收到不匹配当前 `CHECKPOINT_ID` 的 `OK_NEXT`，一律回 `STALE_CHECKPOINT_IGNORED` 并继续等待，不得前进。
 - **控制消息白名单（必须）**：除 `OK_NEXT <CHECKPOINT_ID>` 外，其他 inter-session 文本（如 announce/ping）一律回复 `CONTROL_MESSAGE_IGNORED`，不得改变当前执行状态。
-- **半静默（部分完成但证据过少（Partial-Silent））判定（必须）**：若事件流显示该回合存在工具调用（toolCall/toolResult 非 0），但对外回复仅为通用短句且无任何命令输出，标记 `部分完成但证据过少（Partial-Silent）`；先按追问/拆步补证据，不直接按“伪造”判死。
+- **半静默（部分完成但证据过少（Partial-Silent））判定（必须）**：若事件流显示该回合存在工具调用（toolCall/toolResult 非 0），外回复仅为通用短句且无任何命令输出，标记 `部分完成但证据过少（Partial-Silent）`；先按追问/拆步补证据，不直接按“伪造”判死。
 
 > 注意：你仍然需要在 Round 开始前打 `ANCHOR_UTC`，在 Round 结束后贴出 `find -newermt` 的可能相关 session 文件列表。
 
@@ -266,6 +266,7 @@ EXEC 报告头部模板：
 - [ ] `Round Assignment Check` 已填写，且与派工 round 一致（MISMATCH 则必须在正文说明并停止跨轮）
 - [ ] 每个 Task 证据块使用 `1) [OBSERVED] ...` 编号格式（≥3 行连续原文）
 - [ ] 每个 CHECKPOINT 含 `CHECKPOINT_ID`（逐点闭环可追溯）
+- [ ] **[跨会话握手]** Checkpoint 物理落盘后，已显式调用跨会话通信工具（如 `sessions_send`），将带有 `CHECKPOINT_ID` 的状态变迁报文定向 Push 给主会话（Reviewer），不得仅依赖标准输出。
 - [ ] 已完成轻量卫生检查（路径/分支/远端三元校验 + /tmp 最小清理）
 - [ ] Round 开始前已贴出 ANCHOR_UTC；T3 后已贴出 MARKER_UTC + sleep 2；Round 结束已贴出 candidate sessions(find -newermt)
 - [ ] T2 文件名含 round 后缀（`_round<round>.txt`），避免 R1/R2 覆写

@@ -1,6 +1,6 @@
 # WORKFLOW — ModelEval-Self（REVIEW / 主会话评审官手册 / DIRECT_EXEC 本地子孙模式）
 
-> Version: `1.1`
+> Version: `1.2`
 > Last Updated: `2026-02-18`
 > Status: `active`
 
@@ -75,8 +75,11 @@
 
 **顺序门控（硬约束）**：
 1) sub0 先 spawn sub1，执行 Round1。
+   - **[强制同步锁]** 派发指令后，必须显式调用系统等待/轮询机制（如 `process(action=poll, timeout=900000)`），或声明自身进入 `<STATE: SUSPEND_WAITING>`。必须轮询直到精确捕获 sub1 通过 `sessions_send` 发送的 `inter_session` 唤醒报文及 `CHECKPOINT_ID`。绝对禁止在无确认状态下结束当前流。
+   - 轮询建议：轮询间隔应符合 `process(action=poll)` 默认推荐值，禁止无 yield 的死循环。
 2) Round1 未完成 `Challenge + 评分 + round1 verdict` 前，禁止 spawn sub2。
 3) Round1 CLOSED 后，sub0 再 spawn sub2 执行 Round2。
+   - **[强制同步锁]** 逻辑同 Round 1，需捕获 sub2 的握手报文。
 
 **每轮统一交付物（必须）**：
 - `exec_<Run_ID>_roundX.md`（由 sub1/sub2 生成）
@@ -92,9 +95,9 @@
 > 每个任务点（T1/T2/T3/T4）都应形成 **EXEC→REVIEW 即时核对→Challenge→裁决→进入下一点** 的闭环。
 >
 > **执行约定（必须）**：
-> - EXEC 在每个 T 完成后必须发出 `CHECKPOINT` 小结，并携带 `CHECKPOINT_ID=<run_id>/<round>/<Tn>/<seq>`。
+> - EXEC 在每个 T 完成后必须通过 `sessions_send` 发出 `CHECKPOINT` 握手报文，并携带 `CHECKPOINT_ID=<run_id>/<round>/<Tn>/<seq>`。
 > - EXEC 必须写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`，并暂停等待。
-> - REVIEW 通过时必须回复：`OK_NEXT <CHECKPOINT_ID>`（必须带 id，避免乱序放行）。
+> - REVIEW 必须在同步锁状态下捕获报文。通过时回复：`OK_NEXT <CHECKPOINT_ID>`（必须带 id，避免乱序放行）。
 > - REVIEW 若收到旧 checkpoint（不是当前期望 id），必须回复：`STALE_CHECKPOINT_IGNORED <CHECKPOINT_ID>`。
 > - Round1/2 仍然保留：开头 `ANCHOR_UTC`，结尾 `find -newermt` 可能相关的 session 文件列表。
 
@@ -122,6 +125,7 @@
 #### Phase R1（sub1）
 1) sub0 派发 sub1（仅 Round1，DIRECT_EXEC）：
    - 指令必须包含：`run_id`（填入本次 <Run_ID>）、`round=1`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
+   - 派发后进入 **[强制同步锁]**。
 
 1.1) 模型ID快速检查与异常分流（用于核对是否派错模型）：
    - sub1 开场需回显模型身份（如 `MODEL_ID_ECHO` / `model_change.modelId`）。
@@ -134,7 +138,7 @@
    - 回报优先级：`FAULT_OPERATOR_INPUT` > `FAULT_SUB0_DISPATCH` > `FAULT_EXEC_RUNTIME` > `FAULT_SPEC_AMBIGUITY`。
 
 2) sub0 盯 checkpoint：
-   - 仅接受 `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
+   - 仅接受 `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>` 报文。
    - 放行必须回复 `OK_NEXT <CHECKPOINT_ID>`，其余控制消息按忽略规则处理。
 3) sub0 完成 Round1 质询与评分：
    - Challenge（≥2 句不同提问方式）
@@ -171,6 +175,7 @@ Q3（异常解释）：
 #### Phase R2（sub2）
 1) sub0 派发 sub2（仅 Round2，DIRECT_EXEC）：
    - 指令必须包含：`run_id`（填入本次 <Run_ID>）、`round=2`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
+   - 派发后进入 **[强制同步锁]**。
 2) sub0 重复与 R1 相同的 checkpoint/Challenge/评分/归档流程。
    - 推荐直接使用“Round2 固定三连问模板”（见下）
 3) 写 `review_<Run_ID>_round2.md` 并生成归档与实录，给出 round2 verdict。
@@ -204,7 +209,7 @@ Q3（异常解释）：
 | `PRECHECK_FAILED_MISSING_INPUT`（缺 <Run_ID>/round/branch） | 立即中止本轮，不放行下一 checkpoint | 在 REVIEW 报告 `Errata` 标注输入缺失项 |
 | `Round Assignment Check=MISMATCH` | 本轮判 `Fail` 或 `Partial`（按证据严重度），并禁止跨轮继续 | 在 TL;DR 明确 `Model/Round mismatch` |
 | `MODEL_ECHO_WARNING`（非实质性字符差异） | 记录告警并继续执行 | 在 verdict 标注“模型ID快速检查告警（未中止）” |
-| 明确错误模型（非目标模型族） | 立即停止后续命令并等待指令（默认不自动重派）；仅在 Operator 明确 `Retry` 时才可重派（每轮最多 2 次） | 在 Errata 记录归因、指令与重派次数（如有） |
+| 明确错误模型（非目标模型族） | 立即停止后续命令并等待指令（默认不自动重派）；仅在 Operator 明确 `Retry` 时才可重派（每轮最多 2 次） | 在 Errata 记录归归因、指令与重派次数（如有） |
 | Round1 未完成 Challenge+评分+verdict 就请求启动 Round2 | 拒绝启动 sub2，回复 `ROUND_GATE_DENIED` | 在 round1 报告注明 gate 拒绝原因 |
 | 归档为 0 且生命周期日志不可用 | 直接标 `Audit Completeness=INCOMPLETE`，进入人工复核 | 标记 `NO_SESSION_EVIDENCE + LIFECYCLE_LOG_UNAVAILABLE` |
 | 事件流无 toolCall/toolResult 但文本声称命令输出 | 触发硬判伪造 | `Result=Fail` 且 D1 上限 4 |
@@ -215,7 +220,7 @@ Q3（异常解释）：
 > 目标：不再压缩日志，直接搬运原始文本并生成 Markdown 实录，彻底解决 Claude/Windows 环境下的解压痛点。
 
 - Session 根目录：`/home/ubuntu/.openclaw/agents/main/sessions/`
-- 产物目录：`Audit-Report/<YYYY-MM-DD>/`
+- 产物目录：`Audit-Report/`
 - 原始日志存放：`Audit-Report/<YYYY-MM-DD>/raw_logs/`
 - 归档文件名规范：
   - 原始：`raw_<Run_ID>_round<1|2>_<bn>`
@@ -429,6 +434,7 @@ sub0 在报告末尾必须保留以下区块，严禁填写分数：
 - [ ] 我已读取 EXEC 报告，并确认其头部含 `Run:` 字段
 - [ ] 我已由 EXEC 的锚点信息归档 `raw_logs/` 并生成 `transcript_*.md`（不再使用 gzip 压缩）
 - [ ] 归档时已检查 UUID 是否与其他 run 共享（若共享，已标注 SHARED_SESSION）
+- [ ] 我已在派发指令后启动 [强制同步锁]，直到收到跨会话握手报文
 - [ ] 我已按事件流格式核验 toolCall/toolResult（不是只看报告文本）
 - [ ] 我已核验模型身份（系统元数据优先；EXEC 自述仅对账）并记录 Model consistency
 - [ ] 事件流抽查 ≥2，且包含 T3（git）（若 T3=SKIPPED，已改查最后一个非 SKIPPED 任务并注明原因）
