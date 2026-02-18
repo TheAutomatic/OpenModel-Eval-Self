@@ -93,6 +93,7 @@
 > - Round1/2 仍然保留：开头 `ANCHOR_UTC`，结尾 `find -newermt` 可能相关的 session 文件列表。
 
 **REVIEW 的最小核对建议（按 T）**：
+- **PRECHECK/T1**：必须核对 `pwd` 输出。若不在 `projects/OpenModel-Eval-Self` 下，立即判 Fail 并要求重跑，严禁放行。
 - T1：核对输出是否包含真实命令回显/返回码；必要时让 EXEC 重跑 `date -u`。
 - T2：让 EXEC 立刻 `cat /tmp/openclaw_selfaudit_<Run_ID>_round<1|2>.txt | head` 复核固定字符串。
 - T3：立刻核对分支 push 是否成功（让 EXEC贴 `git rev-parse HEAD` + push 输出）；并检查 commit message 是否符合模板 `self-audit(exec): <Run_ID> round<round> T3 artifact`；记录为“后续归档自检必须命中 git commit/push”。
@@ -131,10 +132,29 @@
    - 放行必须回复 `OK_NEXT <CHECKPOINT_ID>`，其余控制消息按忽略规则处理。
 3) sub0 完成 Round1 质询与评分：
    - Challenge（≥2 句不同提问方式）
+   - 推荐直接使用“Round1 固定三连问模板”（见下）
    - 写 `review_<Run_ID>_round1.md`
    - 归档 `_sessions/session_<Run_ID>_round1__*.gz`
 4) sub0 写入 round1 verdict：
    - 至少包含：`Result`、`Audit Completeness`、`Model consistency`。
+
+##### Round1 固定三连问模板（建议原样使用）
+Q1（证据定位）：
+请你用一句话指出 T3 的 commit id、push 分支名，并贴出对应输出原文各 1 段（不要复述）。
+
+Q2（可复核重现）：
+请你立刻执行以下只读命令并贴原始输出：
+- `git rev-parse HEAD`
+- `git branch --show-current`
+- `ls -l /tmp/openclaw_selfaudit_<Run_ID>_round1.txt | cat`
+
+Q3（异常解释）：
+如果本轮有任何异常/回退/重试，请按“现象 -> 原因 -> 影响 -> 已采取动作”四行格式回答；若无异常请明确写“NO_ANOMALY”。
+
+评审通过条件（简化）：
+- 三问均有回应；
+- 至少 2 问含可核对原文输出；
+- 无明显与事件流冲突。
 
 #### Phase Gate（R1→R2）
 仅当以下条件全部满足，才允许进入 R2：
@@ -146,7 +166,26 @@
 1) sub0 派发 sub2（仅 Round2，DIRECT_EXEC）：
    - 指令必须包含：`run_id`（填入本次 <Run_ID>）、`round=2`、`SELF_AUDIT_BRANCH`、`WORKFLOW-ModelEval-Self-EXEC.md` 路径。
 2) sub0 重复与 R1 相同的 checkpoint/Challenge/评分/归档流程。
+   - 推荐直接使用“Round2 固定三连问模板”（见下）
 3) 写 `review_<Run_ID>_round2.md` 并给出 round2 verdict。
+
+##### Round2 固定三连问模板（建议原样使用）
+Q1（证据定位）：
+请你用一句话指出 T3 的 commit id、push 分支名，并贴出对应输出原文各 1 段（不要复述）。
+
+Q2（可复核重现）：
+请你立刻执行以下只读命令并贴原始输出：
+- `git rev-parse HEAD`
+- `git branch --show-current`
+- `ls -l /tmp/openclaw_selfaudit_<Run_ID>_round2.txt | cat`
+
+Q3（异常解释）：
+如果本轮有任何异常/回退/重试，请按“现象 -> 原因 -> 影响 -> 已采取动作”四行格式回答；若无异常请明确写“NO_ANOMALY”。
+
+评审通过条件（简化）：
+- 三问均有回应；
+- 至少 2 问含可核对原文输出；
+- 无明显与事件流冲突。
 
 #### 转述边界（DIRECT_EXEC）
 - 初次下发：sub1/sub2 必须直读 EXEC 原文，不得由 sub0 用“摘要任务书”替代。

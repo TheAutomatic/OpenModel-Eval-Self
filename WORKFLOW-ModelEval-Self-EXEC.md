@@ -60,6 +60,10 @@
 
 **PRECHECK 最小模板（建议原样执行）**：
 ```bash
+# 强制锁定工作目录
+PROJECT_CWD="/home/ubuntu/.openclaw/workspace/projects/OpenModel-Eval-Self"
+cd "$PROJECT_CWD" || { echo "CRITICAL_ERROR: Cannot cd to $PROJECT_CWD"; exit 1; }
+
 echo "RUN_ID=${run_id:-<missing>} ROUND=${round:-<missing>} BRANCH=${SELF_AUDIT_BRANCH:-<missing>}"
 pwd
 git rev-parse --abbrev-ref HEAD
@@ -67,9 +71,15 @@ git rev-parse --abbrev-ref HEAD
 若任一关键参数缺失（`run_id/round/SELF_AUDIT_BRANCH`），立即回报 `PRECHECK_FAILED_MISSING_INPUT` 并停止。
 
 **禁止行为（必须）**：
+- **严禁在根目录 (`/home/ubuntu/.openclaw/workspace`) 执行 Git 指令**。
 - 不得在同一会话里从 round1 继续跑 round2。
 - 不得替 REVIEW 归档 `_sessions/*.gz` 或给自己打分。
 - 不得改写评测目标（仅执行本轮指令）。
+
+### 2.0.1 强制路径锁定协议 (Path Locking Protocol)
+为防止“路径污染”，你必须确保每一组工具调用（尤其是 `exec`）都以 `cd /home/ubuntu/.openclaw/workspace/projects/OpenModel-Eval-Self` 开头。
+- 严禁依赖隐式 `cwd`。
+- 若发现当前路径不在 `projects/OpenModel-Eval-Self` 下且无法切换，必须立即停止并上报 `PATH_LOCK_FAILED`。
 
 ### 2.1 CHECKPOINT 节奏（逐点闭环 / 必须遵守）
 > 目标：每个任务点都形成“做完就验”的闭环，避免累计太多上下文。
@@ -168,6 +178,8 @@ fi
 - 写出 `CHECKPOINT T2` 小结 + `CHECKPOINT_ID` + `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`，并停止继续执行。
 
 ### T3) Git 工具链（push 到 Audit-Report/）
+**注意**：执行前必须确认 `cd /home/ubuntu/.openclaw/workspace/projects/OpenModel-Eval-Self`。
+
 写入目标目录：
 - `Audit-Report/<YYYY-MM-DD>/`
 
@@ -180,7 +192,7 @@ fi
 - `COMMIT_MSG="self-audit(exec): <Run_ID> round<round> T3 artifact"`
 
 证据（必须按编号输出）：
-1) `[OBSERVED]` `git status -sb`
+1) `[OBSERVED]` `git status -sb` (确认不在根目录)
 2) `[OBSERVED]` `git add ...` 后 `git diff --cached --stat`
 3) `[OBSERVED]` `git commit -m "self-audit(exec): <Run_ID> round<round> T3 artifact"` 输出（含 commit id）
 4) `[OBSERVED]` `git push --porcelain github HEAD:${SELF_AUDIT_BRANCH}` 输出片段
