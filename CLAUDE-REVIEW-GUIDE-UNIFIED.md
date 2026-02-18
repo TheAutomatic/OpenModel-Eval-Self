@@ -51,7 +51,7 @@ Claude 的核心任务：
 ---
 
 ## 3.1) 事件流脚本（保留，必备细节）
-`full_session_audit.py` 是用于审查 `raw_logs/` 下原始事件流的脚本。
+`full_session_audit.py` 是用于审查事件流的脚本。
 
 > 现状：脚本已集中到 workspace：`/home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py`。
 
@@ -63,7 +63,6 @@ python3 /home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py Audit-Rep
 ```
 
 关键判读：
-- 归档现已废除 gzip，直接在 `raw_logs/` 目录下进行物理审计。
 - 若 `git commit` / `git push` 在目标轮次零命中，至少标记 `INCOMPLETE`，并要求补归档窗口说明。
 - 若出现“报告有终端输出，但事件流无对应工具事件”，按高风险处理（至少 Partial，必要时 Fail）。
 
@@ -93,7 +92,6 @@ python3 /home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py Audit-Rep
    - 当 sub0/sub1 陷入僵局时，Operator 是否及时执行了 `sessions_send` 等“强制状态激活”操作。
 
 Windows 兼容提示：
-- 审计现已采用原始文本模式，不再存在 gzip 兼容性障碍。
 - `python3` 不可用时可改 `python`。
 - 控制台乱码时建议 `> output.md` 后用编辑器查看。
 
