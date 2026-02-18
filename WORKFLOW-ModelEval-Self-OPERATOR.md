@@ -10,7 +10,7 @@
 >
 > 执行细节请看：
 > - REVIEW：`WORKFLOW-ModelEval-Self-REVIEW.md`（给 sub0 编排/评审）
-> - EXEC：`WORKFLOW-ModelEval-Self-EXEC.md`（给孙代执行）
+> - EXEC：`WORKFLOW-ModelEval-Self-EXEC.md`（由执行体执行）
 
 ---
 
@@ -48,14 +48,14 @@
 
 ### 3.1 开场验模与异常分流
 - sub1/sub2 在执行开头必须回显模型身份（`MODEL_ID_ECHO` / 事件流 `model_change.modelId`）。
-- 验模用于发现“是否派错模型”，不因轻微字符串差异立即中止。
+- 验模用于发现“是否派错模型”，不因非实质性字符差异判定为不匹配。
 - **若确认是错误模型族（Mismatch）：**
-  1. **sub0 动作**：立即停止后续命令并等待指令，向 Operator 汇报归因（是 Operator 发错了，还是孙子抽风了）。
+  1. **sub0 动作**：立即停止后续命令并等待指令，向 Operator 汇报归因（是 Operator 发错了，还是执行体产生运行时异常）。
   2. **Operator 裁决**：
-     - 若 **Operator 错**（参数发错）：直接 Kill sub0，修正后重开新 sub0。（孙子重派次数 = 0）
-     - 若 **Runtime 错**（偶发抽风）：下令 sub0 重派孙子。
+     - 若 **Operator 错**（参数发错）：直接 Kill sub0，修正后重开新 sub0。（二级子代理重派次数 = 0）
+     - 若 **Runtime 错**（偶发运行时异常）：下令 sub0 重派执行体。
 
-### 3.2 孙代重派上限（仅限 Runtime 异常）
+### 3.2 二级子代理重派上限（仅限 Runtime 异常）
 - 仅在 Operator 确认“参数无误、是执行端问题”并下令重派时，才启用此规则。
 - **禁止 sub0 在未收到 Operator 明确 `Retry` 指令时自动重派。**
 - 每个角色（sub1 或 sub2）最多重派 2 次。
@@ -143,7 +143,7 @@ date +%Y%m%d_%H%M
 为确保评测公正性，采取“执行与编排分离”的审计模式：
 
 1. **[sub0 职责]：打出“模型执行分”（轨道 1）**
-   - sub0 负责评估孙代（sub1/sub2）的能力。
+   - sub0 负责评估执行体（sub1/sub2）的能力。
    - 必须严格对照 `SCORING-UNIVERSAL.md` **轨道 1** 标准，给出 D1-D5 原始分。
 
 2. **[Operator 职责]：打出“编排质量分”（轨道 2）**
@@ -172,7 +172,7 @@ date +%Y%m%d_%H%M
 
 - `FAULT_OPERATOR_INPUT`：Operator 下发模型目标/参数错误。
 - `FAULT_SUB0_DISPATCH`：sub0 派发时模型参数传错、漏传或派发流程错误。
-- `FAULT_EXEC_RUNTIME`：sub1/sub2 运行时回显异常、执行偏差或环境导致异常。
+- `FAULT_EXEC_RUNTIME`：执行体运行时回显异常、执行偏差或环境导致异常。
 - `FAULT_SPEC_AMBIGUITY`：文档规则歧义导致执行分歧。
 
 记录格式建议：

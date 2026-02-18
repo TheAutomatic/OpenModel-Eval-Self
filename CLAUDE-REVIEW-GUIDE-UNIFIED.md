@@ -40,7 +40,7 @@ Claude 的核心任务：
 2. 读 EXEC 手册（执行约束）
 3. 读评分标准：`SCORING-UNIVERSAL.md`（阈值表）+ `SCORING-MAPPING.md`（取证映射）
 4. 读目标 run 的诊断源（按优先级）：
-   - **第一优先 (逻辑流)**：`transcript_<Run_ID>.md`（若存在，用于快速定位认知漂移、信号丢失与逻辑断层）
+   - **第一优先 (逻辑流)**：`transcript_<Run_ID>.md`（若存在，用于快速定位认知漂移、信号路由失效与逻辑断层）
    - **执行报告 (自述)**：`exec_<Run_ID>_round1.md`（确认头部含 `Run:` 字段）
    - **评审报告 (判定)**：`review_<Run_ID>_round1.md`（若已存在）
 5. 核对 `raw_logs/` 或 `_sessions/*.gz`（物理证据）：
@@ -77,7 +77,7 @@ python3 /home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py Audit-Rep
    - 找出所有“非物理性”动词（如：确保、确认、维护、记录）。
    - 建议将其替换为“物理性”强动词（如：执行 `pwd`、读取 `state.json`、正则匹配 `^BATCH_`）。
 3. **闭环完整性分析**：
-   - 为什么流程会中断？（如：评审官走神、信号丢失）。
+   - 为什么流程会中断？（如：评审官会话挂起、信号路由失效）。
    - Runbook 有没有定义“超时重报”或“状态注册”机制？
 
 ## 3.3) Operator 审计 (Operator Audit)
@@ -85,12 +85,12 @@ python3 /home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py Audit-Rep
 
 1. **ID 真实性核验**：
    - 检查 `Batch_ID` 与 `Run_ID` 中的时间戳。
-   - 要求：比对报告中的物理时间锚点。若出现 ID（如 1448）与实际时间（如 11:13）脱节，判定为 **Operator 逻辑幻觉**。
+   - 要求：比对报告中的物理时间锚点。若出现 ID（如 1448）与实际时间（如 11:13）脱节，判定为 **Operator 逻辑偏差**。
 2. **状态核验严谨性**：
    - 检查 Operator 在启动任务前是否执行了 `ls` 或 `read` 确认 Runbook 版本。
    - 判定：若 Operator 凭记忆盲目派发旧指令，属于 **Operator 规程违背**。
 3. **干预有效性**：
-   - 当 sub0/sub1 陷入僵局时，Operator 是否及时执行了 `sessions_send` 等“强制除颤”操作。
+   - 当 sub0/sub1 陷入僵局时，Operator 是否及时执行了 `sessions_send` 等“强制状态激活”操作。
 
 Windows 兼容提示：
 - 不依赖 `gzip/zcat`，脚本使用 Python 内置 gzip。
@@ -135,7 +135,7 @@ Windows 兼容提示：
 9. **Operator 决策盲目性**（v1.2 新增）
    - 严禁 Operator 在未读取 Runbook 最新版本的情况下凭记忆下令。
 10. **ID 溯源性**（v1.2 新增）
-    - ID 中的时间戳必须与物理执行时间一致，严禁脑补 ID。
+    - ID 中的时间戳必须与物理执行时间一致，严禁逻辑脑补。
 
 ---
 
@@ -144,7 +144,7 @@ Claude 的输出必须按以下结构提供加固建议：
 
 ### [Runbook 缺陷诊断]
 - **所属条款**：导致偏差的原始条款。
-- **失效场景**：模型在此处产生幻觉、穿透或卡死的具体诱因。
+- **失效场景**：模型在此处产生虚假数据、路径穿透或卡死的具体诱因。
 
 ### [加固补丁 (Patch)]
 - **EXEC.md 修改**：提供具体的 Markdown 插入代码块（如强制 `cd` 指令）。
@@ -161,7 +161,7 @@ Claude 的输出必须按以下结构提供加固建议：
 请按 `CLAUDE-REVIEW-GUIDE-UNIFIED.md` v1.2 审计以下 runs：<Batch_ID 或 Run_ID 列表>。
 你的核心任务是进行“架构诊断”：
 1) 不要只告诉我模型错在哪，告诉我 Runbook 里的哪一句话诱导了错误的发生。
-2) 针对发现的“路径穿透”、“脑补 ID”或“信号丢失”等风险，提供具体的 Runbook 加固补丁。
+2) 针对发现的“路径穿透”、“虚假 ID”或“信号断裂”等风险，提供具体的 Runbook 加固补丁。
 3) 对 Operator (Moss) 的决策严谨性进行审计（是否脑补 ID、是否凭记忆下令）。
 4) 提供 MUST FIX (架构级) / SHOULD IMPROVE / NIT 建议。
 ```
@@ -194,8 +194,8 @@ Claude 的输出必须按以下结构提供加固建议：
 8. **D4 无质询记录**（v1.1）：Score 块有 D4 分值但无 Challenge Details，D4 不可复核。
 9. **Session UUID 跨 run 共享**（v1.1）：两个不同 run 的归档 session 来自同一 UUID，独立性存疑。
 10. **路径隐喻 (Path Metaphor)**（v1.2）：Runbook 仅说“在项目下”，未执行强制 `cd`，导致模型在根目录越权。
-11. **脑补 ID (Hallucinated Identity)**（v1.2）：Runbook 未强制物理取时，导致模型发明虚假时间戳。
-12. **信号单向性 (One-way Signaling)**（v1.2）：子代报完 Checkpoint 没人理，缺少主会话干预或超时回调。
+11. **虚假 ID (Hallucinated Identity)**（v1.2）：Runbook 未强制物理取时，导致模型生成虚假时间戳。
+12. **信号单向性 (One-way Signaling)**（v1.2）：子代报完 Checkpoint 没人理，缺少强制唤醒或超时回调。
 
 ---
 

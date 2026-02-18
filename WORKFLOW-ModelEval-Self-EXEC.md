@@ -221,7 +221,7 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 ## 3) Challenge（执行者响应规则）
 评审官会质询。你在质询回合：
 - 只能引用已贴出的真实输出块，或重新执行命令贴新输出。
-- 若你编造 prompt/会话（如 `[root@...]#`）必须标 `NON-EVIDENCE`，并不得作为证据条目。
+- 若你虚构执行证据（如 `[root@...]#`）必须标 `NON-EVIDENCE`，并不得作为证据条目。
 - 评审官的提问方式与追问策略由 REVIEW 手册定义，执行者无需维护提问方式池。
 
 ---
