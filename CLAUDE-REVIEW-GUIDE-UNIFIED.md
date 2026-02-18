@@ -45,20 +45,15 @@ Claude 的核心任务：
    - **评审报告 (判定)**：`review_<Run_ID>_round1.md`（若已存在）
 5. 核对 `raw_logs/` 中的原始 `.jsonl`（物理证据）：
    - 检查 UUID 是否跨 run 重复（SHARED_SESSION 检测）
-   - 用 `full_session_audit.py` 做**全量**事件流审查，验证自述与物理动作的一致性
 6. 用 `full_session_audit.py` 做**全量**事件流审查（必须覆盖所有归档文件，禁止抽查）
 
 ---
 
-## 3.1) 事件流脚本（保留，必备细节）
-`full_session_audit.py` 是用于审查事件流的脚本。
-
-> 现状：脚本已集中到 workspace：`/home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py`。
-
+## 3.1) 事件流脚本
 推荐命令（一次性跑完所有 run）：
 
 ```bash
-# 全量审查所有归档原始日志（自动检测 anomalies / toolCall / git events / UUID 冲突）
+# 全量审查所有归档原始日志
 python3 /home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py Audit-Report/<date>/raw_logs > audit_report.txt
 ```
 
