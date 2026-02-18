@@ -39,13 +39,13 @@ Claude 的核心任务：
 1. 读 REVIEW 手册（判定标准）
 2. 读 EXEC 手册（执行约束）
 3. 读评分标准：`SCORING-UNIVERSAL.md`（阈值表）+ `SCORING-MAPPING.md`（取证映射）
-4. 读目标 run 的：
-   - `exec_<Run_ID>_round1.md`（确认头部含 `Run:` 字段）
-   - `exec_<Run_ID>_round2.md`
-   - `review_<Run_ID>_round1.md`（若已存在）
-   - `review_<Run_ID>_round2.md`（若已存在）
-5. 核对 `_sessions/*.gz`（若存在）
+4. 读目标 run 的诊断源（按优先级）：
+   - **第一优先 (逻辑流)**：`transcript_<Run_ID>.md`（若存在，用于快速定位认知漂移、信号丢失与逻辑断层）
+   - **执行报告 (自述)**：`exec_<Run_ID>_round1.md`（确认头部含 `Run:` 字段）
+   - **评审报告 (判定)**：`review_<Run_ID>_round1.md`（若已存在）
+5. 核对 `raw_logs/` 或 `_sessions/*.gz`（物理证据）：
    - 检查 UUID 是否跨 run 重复（SHARED_SESSION 检测）
+   - 用 `full_session_audit.py` 做**全量**事件流审查，验证自述与物理动作的一致性
 6. 用 `full_session_audit.py` 做**全量**事件流审查（必须覆盖所有归档文件，禁止抽查）
 
 ---
@@ -108,6 +108,8 @@ Windows 兼容提示：
 并同步给出：
 - `Result (audit)`：Pass / Partial / Fail
 - `Audit Completeness`：COMPLETE / INCOMPLETE
+- **任务中止判定 (Run Interruption Status)**：
+  - 区分“系统性崩溃”与“Operator 人工熔断”。若属于后者（如为了规避外部杂讯），应聚焦于中止前的合规性，不应机械判定为 Fail。
 
 **必查校验**：
 - Total → Rating 必须查对 `SCORING-UNIVERSAL.md §3` 阈值表（90-100=S, 75-89=A, 60-74=B, 40-59=C, <40=F）
