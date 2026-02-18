@@ -108,8 +108,6 @@ Windows 兼容提示：
 并同步给出：
 - `Result (audit)`：Pass / Partial / Fail
 - `Audit Completeness`：COMPLETE / INCOMPLETE
-- **任务中止判定 (Run Interruption Status)**：
-  - 区分“系统性崩溃”与“Operator 人工熔断”。若属于后者（如为了规避外部杂讯），应聚焦于中止前的合规性，不应机械判定为 Fail。
 
 **必查校验**：
 - Total → Rating 必须查对 `SCORING-UNIVERSAL.md §3` 阈值表（90-100=S, 75-89=A, 60-74=B, 40-59=C, <40=F）

@@ -148,7 +148,6 @@ date +%Y%m%d_%H%M
 
 2. **[Operator 职责]：打出“编排质量分”（轨道 2）**
    - Operator 负责评估子代（sub0）的评审表现。
-   - **中断判定（Interruption Status）**：若任务中途停止，Operator 必须区分是 **“系统故障”** 还是 **“人工熔断”**。若为后者，应聚焦于停止前的表现进行审计，不因中断扣除 D2 完成度分。
    - 必须严格对照 `SCORING-UNIVERSAL.md` **轨道 2** 标准，审计记录合规性、证据归档完整性及门控执行情况。
    - 轨道 2 的 PASS/FAIL 结论由 Operator 在验收 sub0 报告时最终判定。
 
