@@ -2,15 +2,18 @@
 
 > 目标：让 Claude 在**不参与执行**的前提下，对任意一次/多次评测给出可复核、可落地的评审意见。
 > 适用：OpenModel-Eval-Self（自评）与同口径扩展评测。
-> 版本：v1.1（2026-02-16，同步 turn5 runbook 修订）
+> 版本：v1.2（2026-02-18，强化 Runbook 架构诊断逻辑）
 
 ---
 
 ## 1) 评审定位（先对齐）
-Claude 的职责只有三件事：
-1. 核对规则是否被遵守（流程正确性）
-2. 核对证据是否闭环（可审计性）
-3. 给出最小可执行改进建议（可落地 patch）
+Claude 的职责不是简单的“打分员”，而是“架构分析师”。
+你的最终目标是：**通过分析执行过程中的偏差，定位 Runbook（WORKFLOW-*.md）的防御盲区并生成加固补丁。**
+
+Claude 的核心任务：
+1. 诊断导致模型偏差的指令缺陷（指令盲区）
+2. 诊断导致流程中断的闭环缺陷（信号断裂）
+3. 提供具体的、可落地的 Runbook 加固补丁（代码级 patch）
 
 **不做的事**：
 - 不重写架构
@@ -64,6 +67,19 @@ python3 /home/ubuntu/.openclaw/workspace/scripts/full_session_audit.py Audit-Rep
 - 若 `git commit` / `git push` 在目标轮次零命中，至少标记 `INCOMPLETE`，并要求补归档窗口说明。
 - 若出现“报告有终端输出，但事件流无对应工具事件”，按高风险处理（至少 Partial，必要时 Fail）。
 
+## 3.2) 偏差根因溯源（Drift Root-Cause Logic）
+当“预期结果”与“实际动作”不符时，必须按以下三步溯源并提供 Patch：
+
+1. **指令盲区检测**：
+   - Runbook 是否存在默认假设？（如：假设模型会自动进入某个目录）。
+   - 如果给一个完全丢失记忆的新模型看这份 EXEC.md，它能凭空做对吗？
+2. **动词模糊度审计**：
+   - 找出所有“非物理性”动词（如：确保、确认、维护、记录）。
+   - 建议将其替换为“物理性”强动词（如：执行 `pwd`、读取 `state.json`、正则匹配 `^BATCH_`）。
+3. **闭环完整性分析**：
+   - 为什么流程会中断？（如：评审官走神、信号丢失）。
+   - Runbook 有没有定义“超时重报”或“状态注册”机制？
+
 Windows 兼容提示：
 - 不依赖 `gzip/zcat`，脚本使用 Python 内置 gzip。
 - `python3` 不可用时可改 `python`。
@@ -107,34 +123,30 @@ Windows 兼容提示：
 
 ---
 
-## 6) 如何给意见（输出结构固定）
-Claude 输出必须按三层：
+## 6) 如何给意见（Runbook 补丁导向）
+Claude 的输出必须按以下结构提供加固建议：
 
-### MUST FIX
-会导致误判、不可复核或流程失真的问题。
+### [Runbook 缺陷诊断]
+- **所属条款**：导致偏差的原始条款。
+- **失效场景**：模型在此处产生幻觉、穿透或卡死的具体诱因。
 
-### SHOULD IMPROVE
-不改也能跑，但稳定性/可读性/维护性明显受损。
+### [加固补丁 (Patch)]
+- **EXEC.md 修改**：提供具体的 Markdown 插入代码块（如强制 `cd` 指令）。
+- **REVIEW.md 修改**：提供具体的核验逻辑（如 Checkpoint 强制 `pwd` 检查）。
 
-### NIT
-命名、模板、行文层面的轻量优化。
-
-每条建议都要写：
-- 问题
-- 风险
-- 最小改法（具体到文件与段落）
+### [逻辑健壮性建议]
+- 指出文档中的弱动词、模糊假设或单向信号风险。
 
 ---
 
 ## 7) 推荐给 Claude 的任务模板（可直接复制）
 
 ```markdown
-请按 `CLAUDE-REVIEW-GUIDE-UNIFIED.md` 审计以下 runs：<run_id 列表>。
-要求：
-1) 使用同一 REVIEW 口径给并排结论（每个 run 的 R1/R2 Result、Completeness、Total/Rating）
-2) 标出 MUST FIX / SHOULD IMPROVE / NIT
-3) 对每个 MUST FIX 给最小 patch 建议（文件+段落）
-4) 若某 run 证据不足，明确标注 INCOMPLETE，不要脑补结论
+请按 `CLAUDE-REVIEW-GUIDE-UNIFIED.md` v1.2 审计以下 runs：<run_id 列表>。
+你的核心任务是进行“架构诊断”：
+1) 不要只告诉我模型错在哪，告诉我 Runbook 里的哪一句话诱导了错误的发生。
+2) 针对发现的“路径穿透”、“脑补 ID”或“信号丢失”等风险，提供具体的 Runbook 加固补丁。
+3) 提供 MUST FIX (架构级) / SHOULD IMPROVE / NIT 建议。
 ```
 
 ---
@@ -164,6 +176,9 @@ Claude 输出必须按三层：
 7. **T2 文件名覆写**（v1.1）：R1/R2 使用同名 `/tmp/...` 文件，导致 R1 payload 被 R2 覆盖，事后不可复核。
 8. **D4 无质询记录**（v1.1）：Score 块有 D4 分值但无 Challenge Details，D4 不可复核。
 9. **Session UUID 跨 run 共享**（v1.1）：两个不同 run 的归档 session 来自同一 UUID，独立性存疑。
+10. **路径隐喻 (Path Metaphor)**（v1.2）：Runbook 仅说“在项目下”，未执行强制 `cd`，导致模型在根目录越权。
+11. **脑补 ID (Hallucinated Identity)**（v1.2）：Runbook 未强制物理取时，导致模型发明虚假时间戳。
+12. **信号单向性 (One-way Signaling)**（v1.2）：子代报完 Checkpoint 没人理，缺少主会话干预或超时回调。
 
 ---
 
