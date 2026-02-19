@@ -85,7 +85,7 @@
 
 ---
 
-## 2026-02-16 Legacy vs Recalibrated 评分对比（v1.1）
+## 2026-02-16 Legacy vs Recalibrated 评分对比（个人老版评测记录，仅供参考）
 
 > 口径：`SCORING-UNIVERSAL.md v1.1`
 > 详细对比文件：`Audit-Report/2026-02-16/scoring_comparison_legacy_vs_recalibrated.md`
