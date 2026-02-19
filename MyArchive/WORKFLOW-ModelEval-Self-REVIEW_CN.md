@@ -64,7 +64,7 @@ ROUND="round1"
 REF_TS="<从 EXEC 复制 SESSION_ANCHOR_UTC>"
 ROUND1_END_UTC="<可选: round1 最后一个任务点的 utc>" # R2 归档时填入，用于物理隔离 R1
 SESSION_ROOT="/home/ubuntu/.openclaw/agents/main/sessions"
-OUT_DIR="Audit-Report/${RUN_ID}"
+OUT_DIR="Audit-Report/$(date -u +%Y-%m-%d)"
 RAW_DIR="$OUT_DIR/raw_logs"
 mkdir -p "$RAW_DIR"
 
