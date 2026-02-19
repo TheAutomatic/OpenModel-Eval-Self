@@ -61,15 +61,16 @@ Q3: 若有异常请按“现象->原因->影响->动作”回答；若无写“N
 RUN_ID="<Run_ID>"
 ROUND="round1"
 REF_TS="<paste from EXEC SESSION_ANCHOR_UTC>"
+ROUND1_END_UTC="<optional: round1 last checkpoint utc>" # R2 归档时填入，用于物理隔离 R1
 SESSION_ROOT="/home/ubuntu/.openclaw/agents/main/sessions"
 OUT_DIR="Audit-Report/$(date -u +%Y-%m-%d)"
 RAW_DIR="$OUT_DIR/raw_logs"
 mkdir -p "$RAW_DIR"
 
 REF_TS_MINUS60=$(date -d "$REF_TS - 60 seconds" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "$REF_TS")
-CANDIDATES=$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$REF_TS_MINUS60" -print0 | xargs -r -0 ls -1t | head -n 3)
+CANDIDATES=$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$REF_TS_MINUS60" ${ROUND1_END_UTC:+-newermt "$ROUND1_END_UTC"} -print0 | xargs -r -0 ls -1t | head -n 3)
 
-[ $(echo "$CANDIDATES" | sed '/^$/d' | wc -l) -lt 2 ] && CANDIDATES=$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$(date -d "$REF_TS - 120 seconds" +"%Y-%m-%dT%H:%M:%SZ")" -print0 | xargs -r -0 ls -1t | head -n 3)
+[ $(echo "$CANDIDATES" | sed '/^$/d' | wc -l) -lt 2 ] && CANDIDATES=$(find "$SESSION_ROOT" -maxdepth 1 -type f -name "*.jsonl" -newermt "$(date -d "$REF_TS - 120 seconds" +"%Y-%m-%dT%H:%M:%SZ")" ${ROUND1_END_UTC:+-newermt "$ROUND1_END_UTC"} -print0 | xargs -r -0 ls -1t | head -n 3)
 
 echo "$CANDIDATES" | while read -r f; do
   [ -z "$f" ] && continue
@@ -81,6 +82,9 @@ done
 # ASSERTION: JSONL Escaping Check
 grep -nE "git[[:space:]]+commit" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* || echo "[ASSERT_FAIL] MISSING_COMMIT"
 grep -nE "git[[:space:]]+push" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* || echo "[ASSERT_FAIL] MISSING_PUSH"
+
+# UUID 唯一性核验 (物理证据提取)
+grep -h "\"uuid\":" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* | sort | uniq -c
 ```
 
 **ASSERTION RESOLUTION**: 
