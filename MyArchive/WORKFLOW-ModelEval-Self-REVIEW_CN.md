@@ -64,7 +64,7 @@ ROUND="round1"
 REF_TS="<从 EXEC 复制 SESSION_ANCHOR_UTC>"
 ROUND1_END_UTC="<可选: round1 最后一个任务点的 utc>" # R2 归档时填入，用于物理隔离 R1
 SESSION_ROOT="/home/ubuntu/.openclaw/agents/main/sessions"
-OUT_DIR="Audit-Report/$(date -u +%Y-%m-%d)"
+OUT_DIR="Audit-Report/${RUN_ID}"
 RAW_DIR="$OUT_DIR/raw_logs"
 mkdir -p "$RAW_DIR"
 
@@ -115,6 +115,9 @@ grep -h "\"uuid\":" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* | sort | uniq -c
 2. `Score` (得分): 严格输出 D1-D5 (0-20), Total (0-100), Rating (S/A/B/C/F)，基于 `SCORING-UNIVERSAL.md`。
 3. `Challenge Details` (质询细节): Q/A/D4 原因。
 4. `Orchestration Audit (Track 2)` (编排审计 - 轨道 2): 保留未填写占位符供 OPERATOR 覆写。
+
+**第一轮终点记录 (ROUND 1 ENDPOINT RECORDING)**:
+- **动作 (ACTION)**: 必须记录 `sub1` 最后一个报文的 UTC 时间戳，并保存为 `ROUND1_END_UTC` 以供 R2 物理隔离使用。
 
 **网关断言 (GATEWAY ASSERTION) (R1 -> R2)**:
 `IF (review_round1.md IS WRITTEN) AND (raw_logs EXIST)` -> `TRANSITION GOTO [STATE 5]`

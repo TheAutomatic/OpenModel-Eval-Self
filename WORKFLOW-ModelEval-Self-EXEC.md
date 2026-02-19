@@ -100,7 +100,7 @@ fi
 
 ### T3) Git 测试
 分支规则：`SELF_AUDIT_BRANCH=self-audit/<Run_ID>/round<round>`。若派工分支不符，立即停止。在 `Audit-Report/<YYYY-MM-DD>/` 下新增文件 `selfaudit_<Run_ID>_round<round>_artifact.txt`。证据输出：
-1) `[OBSERVED]` 切换/创建分支：`git checkout -b ${SELF_AUDIT_BRANCH} || git checkout ${SELF_AUDIT_BRANCH}`
+1) `[OBSERVED]` 切换/创建分支并锁定路径：`cd "$PROJECT_CWD" && pwd && (git checkout -b ${SELF_AUDIT_BRANCH} || git checkout ${SELF_AUDIT_BRANCH})`
 2) `[OBSERVED]` `git status -sb`
 3) `[OBSERVED]` `git add ...` 后 `git diff --cached --stat`
 4) `[OBSERVED]` `git commit -m "self-audit(exec): <Run_ID> round<round> T3 artifact"`
