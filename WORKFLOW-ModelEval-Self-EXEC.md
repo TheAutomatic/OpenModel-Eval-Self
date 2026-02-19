@@ -95,15 +95,17 @@ fi
 ### T2) 写入测试
 写入文件 `/tmp/openclaw_selfaudit_<Run_ID>_round<round>.txt`。内容包含：Run_ID, UTC 时间戳, 及字符串 `OPENCLAW_SELF_AUDIT_PAYLOAD_OK`。证据输出：
 1) `[OBSERVED]` 写入后 `ls -l` + `wc -c`
-2) `[OBSERVED]` `head -5`
+2) `[OBSERVED]` `head -5` 且使用 `cat -A` 展示原文完整可见字符 (以应对 REVIEW Q4 动态质询)
 > **发 CHECKPOINT T2，阻塞等待。**
 
 ### T3) Git 测试
-分支规则：`SELF_AUDIT_BRANCH=self-audit/<Run_ID>/round<round>`。若派工分支不符，立即停止。在 `Audit-Report/<YYYY-MM-DD>/` 下新增文件 `selfaudit_<Run_ID>_round<round>_artifact.txt`。证据输出：
-1) `[OBSERVED]` `git status -sb`
-2) `[OBSERVED]` `git add ...` 后 `git diff --cached --stat`
-3) `[OBSERVED]` `git commit -m "self-audit(exec): <Run_ID> round<round> T3 artifact"`
-4) `[OBSERVED]` `git push --porcelain github HEAD:${SELF_AUDIT_BRANCH}`
+分支规则：`SELF_AUDIT_BRANCH=self-audit/<Run_ID>/round<round>`。
+1) `[OBSERVED]` 切换/创建分支：`git checkout -b ${SELF_AUDIT_BRANCH} || git checkout ${SELF_AUDIT_BRANCH}`
+2) `[OBSERVED]` 在 `Audit-Report/<YYYY-MM-DD>/` 下新增文件 `selfaudit_<Run_ID>_round<round>_artifact.txt`。
+3) `[OBSERVED]` `git status -sb`
+4) `[OBSERVED]` `git add ...` 后 `git diff --cached --stat`
+5) `[OBSERVED]` `git commit -m "self-audit(exec): <Run_ID> round<round> T3 artifact"`
+6) `[OBSERVED]` `git push --porcelain github HEAD:${SELF_AUDIT_BRANCH}`
 > **发 CHECKPOINT T3，阻塞等待。**
 
 ### T4) SSH 连通性探针
