@@ -79,8 +79,8 @@ echo "$CANDIDATES" | while read -r f; do
 done
 
 # ASSERTION: JSONL Escaping Check
-grep -nE "git(\s|\\\\s|\\\\n| )+commit" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* || echo "[ASSERT_FAIL] MISSING_COMMIT"
-grep -nE "git(\s|\\\\s|\\\\n| )+push" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* || echo "[ASSERT_FAIL] MISSING_PUSH"
+grep -nE "git[[:space:]]+commit" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* || echo "[ASSERT_FAIL] MISSING_COMMIT"
+grep -nE "git[[:space:]]+push" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* || echo "[ASSERT_FAIL] MISSING_PUSH"
 ```
 
 **ASSERTION RESOLUTION**: 
