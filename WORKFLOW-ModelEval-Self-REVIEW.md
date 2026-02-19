@@ -47,6 +47,7 @@
 Q1: 请用一句话指出 T3 的 commit id、push 分支名，并贴出输出原文各1段。
 Q2: 立刻执行只读命令并贴原始输出: `git rev-parse HEAD`, `git branch --show-current`, `ls -l /tmp/openclaw_selfaudit_<Run_ID>_round1.txt | cat`.
 Q3: 若有异常请按“现象->原因->影响->动作”回答；若无写“NO_ANOMALY”。
+Q4 (动态细节): sub0 必须根据 sub1 报告的 T2 内容，随机选取一个文件属性或内容细节进行核验（例：请指出该文件的第 X 个字符或精确字节数）。
 ```
 **TRANSITION**: 等待 `sub1` 回复 -> 收到后 `GOTO [STATE 3]`。
 
@@ -124,6 +125,7 @@ grep -h "\"uuid\":" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* | sort | uniq -c
 ## [STATE 5] ROUND 2 EXECUTION (sub2)
 
 **TRIGGER**: R1 Gate 通过。
+**ACTION 0**: 强制重置上下文。sub0 必须确保后续所有归档脚本中的 ROUND="round2" 且相关路径/变量已更新。
 **ACTION 1**: Spawn `sub2`。 注入参数表 (R2)。
 **ACTION 2**: 激活 `[SUSPEND_WAITING]`。
 *(逻辑循环 `STATE 1` 至 `STATE 4`，覆盖 `round2`)*
