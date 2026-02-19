@@ -138,4 +138,4 @@ Bash 脚本中 `CANDIDATES` 的 `find` 命令需增加 `-newermt "$ROUND1_END_UT
 
 **TERMINATION**:
 `ROUND 2` 报告落盘并 `git commit/push` 后，通知 `OPERATOR` 接收控制权。`sub0` 退出。
-``` `````
+
