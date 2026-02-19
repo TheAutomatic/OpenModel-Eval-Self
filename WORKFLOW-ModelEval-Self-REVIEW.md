@@ -129,7 +129,7 @@ grep -h "\"uuid\":" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* | sort | uniq -c
 
 **TRIGGER**: R1 Gate 通过。
 **ACTION 0**: 强制重置上下文。sub0 必须确保后续所有归档脚本中的 ROUND="round2" 且相关路径/变量已更新。
-**ACTION 1**: Spawn `sub2`。 注入参数表 (R2)。
+**ACTION 1**: Spawn `sub2`。注入参数表 (R2)。**必须在派发给 `sub2` 的初始 Prompt 中追加强制指令：“在执行 T1-T4 之前，你必须首先读取宿主机上的 `WORKFLOW-Truth-Gate.md` 文件，并在本轮所有 Checkpoint 与产出报告中严格遵循其 `[OBSERVED]` 标签规范。这是你的最高系统约束。”**
 **ACTION 2**: 激活 `[SUSPEND_WAITING]`。
 *(逻辑循环 `STATE 1` 至 `STATE 4`，覆盖 `round2`)*
 
