@@ -37,7 +37,8 @@
 1. **生成时序 ID (Run_ID)**：
    - 执行 `date -u +"%Y%m%d_%H%M"` 获取 UTC 时间锚点。
 2. **挂载干预变量 (Truth Gate Injection)**：
-   - 必须在派发 `sub0` 的初始 Prompt 中明确指令：“Round 1 为原生基线测试；Round 2 为干预测试。在派发 sub2 时，你 (sub0) 必须在初始派工单中，强制要求 sub2 首先阅读 `WORKFLOW-Truth-Gate.md` 文件，并声明将其作为本轮执行的最高约束。”
+   - 派发 `sub0` 时必须明确：`Round1=原生基线`，`Round2=干预测试`。
+   - 派发 `sub2` 时必须强制其先读 `WORKFLOW-Truth-Gate.md`，并声明为本轮最高约束。
 3. **锁定 Git 分支拓扑**：
    - 必须强制 `sub0` 与其子代使用统一分支：`self-audit/<Run_ID>/round<round>`。
 4. **下发初始载荷 (Payload)**：
@@ -47,7 +48,7 @@
 
 ## 3) 强同步锁与生命周期管理 (Lifecycle Synchronization)
 
-为防止异步并发导致的失联与死锁，OPERATOR 必须对 `sub0` 实施严格的状态机控制：
+OPERATOR 对 `sub0` 实施状态机控制：
 
 ### 3.1 阻塞等待协议 (Blocking Wait)
 - 派发 `sub0` 后，OPERATOR 必须进入 `<STATE: SUSPEND_WAITING>`。
@@ -79,7 +80,7 @@
 
 ## 5) 轨道 2：编排质量验收 (Orchestration Audit)
 
-当 `sub0` 完成所有流程并交付 `review_<Run_ID>_round<1|2>.md` 后，OPERATOR 负责最终验收（轨道 2），防范评审官 `sub0` 发生逻辑幻觉。
+`sub0` 交付 `review_<Run_ID>_round<1|2>.md` 后，OPERATOR 执行轨道 2 终验。
 
 ### 5.1 验收矩阵
 基于物理文件系统验收，不接受纯文本口头结论：
