@@ -27,6 +27,11 @@
 **ACTION 1**: Spawn `sub1`。 注入参数表 (R1)。
 **ACTION 2**: `EXEC process(action=poll, timeout_ms=900000)` -> 进入 `[SUSPEND_WAITING]` 状态。
 
+**STATE 1 封闭规则（硬约束）**：
+- 在 `STATE 1` 期间，sub0 必须持续完成 checkpoint 握手闭环（收到 `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>` 后返回匹配的 `OK_NEXT <CHECKPOINT_ID>`）。
+- 无论采用何种可审计交互方式，必须保证握手证据可在 raw_logs/receipt 中回溯。
+- 禁止在未收到 `T4 + MATCH` 前跳转到 `STATE 2`。
+
 ### [EVENT] INTER_SESSION_MESSAGE_RECEIVED
 **PAYLOAD**: `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`
 - **CONDITION A (MATCH)**: `CHECKPOINT_ID` == `<run_id>/1/<Tn>/<seq>`
@@ -166,6 +171,10 @@ grep -h "\"uuid\":" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* | sort | uniq -c
 1. `raw_logs` 存在且非空（R1）
 2. `checkpoint` 闭环 `COMPLETE`（基于 receipt：T1~T4 均 `wait_sent_via_toolcall=true` 且 `ack_status=MATCH`）
 3. `challenge` 闭环 `COMPLETE`（Q1~Q4 均有 Question/Answer/Evidence Ref/Verdict 四字段，且不存在未解释缺口）
+
+**机器校验要求（新增）**：
+- 在 Gate 判定前必须执行：`scripts/check_checkpoint_chain.sh <Run_ID> 1 <YYYY-MM-DD>`。
+- 脚本返回非 0（如 `MISSING_Tn`、`WAIT_NOT_TOOLCALL`、`ACK_NOT_MATCH`）时，必须直接 `HALT (ROUND_GATE_DENIED)`，不得进入 R2。
 
 否则：`HALT (ROUND_GATE_DENIED)`
 

@@ -53,22 +53,15 @@ git rev-parse --abbrev-ref HEAD
 **强制路径锁定协议**：
 每一组工具调用必须确保在 `/home/ubuntu/.openclaw/workspace/projects/OpenModel-Eval-Self` 下执行。严禁依赖隐式 `cwd`。严禁在根目录执行 Git 指令。
 
-### 1.2 CHECKPOINT 跨会话握手协议
+### 1.2 CHECKPOINT 跨会话握手协议（硬约束）
 - 每个 CHECKPOINT 必须生成唯一标识：`CHECKPOINT_ID=<Run_ID>/<round>/<Tn>/<seq>`。
-- 默认必须使用 `sessions_send` 工具定向 Push 给 Reviewer，明确写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
-- **阻塞等待**：必须停止执行后续任务，直到 Reviewer 明确回复 `OK_NEXT <CHECKPOINT_ID>`。
+- **固定顺序（不可变更）**：
+  1) 先落盘 receipt（`wait_sent_via_toolcall=true`，`ack_status=WAITING`）
+  2) 通过任一可审计工具通道向 Reviewer 发送：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`
+  3) 阻塞等待 `OK_NEXT <CHECKPOINT_ID>`
+  4) 收到后回填 receipt：`ack_status=MATCH` 与 `ack_recv_utc`
 - **防乱序**：若收到不匹配当前 ID 的 `OK_NEXT`，回 `STALE_CHECKPOINT_IGNORED` 并继续等待。
-- **[致命熔断]**：严禁仅在 stdout 文本打印 `WAITING_REVIEW_OK_NEXT` 充当握手；该报文必须由真实 Tool Call（`sessions_send` 或等效 IPC）发出。若 `raw_logs` 未捕获对应 toolCall，将直接判定为伪造。
-
-### 1.2.2 能力探测与降级通道（P1）
-- **能力探测**：执行前先检测 `sessions_send` 是否可用。
-- **降级条件**：仅当工具不可用或调用失败时，允许启用降级。
-- **降级通道**：写入 `Audit-Report/<YYYY-MM-DD>/receipts/degraded_checkpoint_<Run_ID>_round<round>.jsonl`，记录：
-  - `checkpoint_id`, `task`, `seq`, `degraded=true`
-  - `reason`（如 `SESSIONS_SEND_UNAVAILABLE` / `TOOL_CALL_FAILED`）
-  - `fallback_channel`（如 `INTER_SESSION_MESSAGE_TEXT_ONLY`）
-  - `wait_sent_utc`, `ack_recv_utc`, `ack_status`
-- **强制留痕**：只要走过降级，最终报告必须在 TL;DR 标记 `DEGRADED_PATH_USED`。
+- **[致命熔断]**：严禁仅在 stdout 文本打印 `WAITING_REVIEW_OK_NEXT` 充当握手；该报文必须由真实 Tool Call（任一可审计 IPC/消息工具）发出。若 `raw_logs` 未捕获对应 toolCall，立即 `HARD_FAIL` 并停止本轮。
 
 ### 1.2.1 CHECKPOINT 机读回执（Receipt）
 每次 checkpoint 必须落盘一条机读回执到：
@@ -78,7 +71,7 @@ git rev-parse --abbrev-ref HEAD
 - `run_id`, `round`, `checkpoint_id`, `task` (`T1~T4`), `seq`
 - `wait_sent_via_toolcall` (`true/false`)
 - `wait_sent_utc`, `ack_recv_utc`
-- `ack_status` (`MATCH|STALE|TIMEOUT`)
+- `ack_status` (`WAITING|MATCH|STALE|TIMEOUT`)
 
 **闭环判定标准（EXEC 侧）**：
 - `T1~T4` 全部存在 `wait_sent_via_toolcall=true`
@@ -177,7 +170,7 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 - [ ] `Round Assignment Check` 一致
 - [ ] 证据块使用 `1) [OBSERVED] ...` 编号格式
 - [ ] 每个 CHECKPOINT 含 `<Run_ID>/<round>/<Tn>/<seq>`
-- [ ] Checkpoint 物理落盘后，已调用 `sessions_send` Push 报文
+- [ ] Checkpoint 物理落盘后，已通过可审计工具通道 Push 报文
 - [ ] 已完成轻量卫生检查
 - [ ] 已贴出 ANCHOR_UTC、MARKER_UTC 与 candidate sessions
 - [ ] T2/T3 文件名与分支含 round 后缀，未跨轮覆写
