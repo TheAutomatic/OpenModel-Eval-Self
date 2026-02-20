@@ -29,7 +29,8 @@
 2. **RUN**：按 T1→T2→T3→T4 顺序执行。
 3. **CHECKPOINT**：每个 T 后必须等待 `OK_NEXT <CHECKPOINT_ID>`。
 4. **REPORT**：只写本轮 exec 报告并提交锚点/候选会话。
-5. **STOP**：本轮 CLOSED 后立即停止，不跨轮。
+5. **CHALLENGE_STANDBY**：本轮报告落盘后，绝对禁止自行终止会话（Exit）。必须进入阻塞挂起，等待 Reviewer 发起 Q1-Q4 质询。
+6. **STOP**：仅在 Challenge 完整应答后，方可停止本轮执行并关闭会话。
 
 **PRECHECK 最小模板（原样执行）**：
 ```bash
@@ -50,6 +51,7 @@ git rev-parse --abbrev-ref HEAD
 - 必须使用 `sessions_send` 工具定向 Push 给 Reviewer，明确写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
 - **阻塞等待**：必须停止执行后续任务，直到 Reviewer 明确回复 `OK_NEXT <CHECKPOINT_ID>`。
 - **防乱序**：若收到不匹配当前 ID 的 `OK_NEXT`，回 `STALE_CHECKPOINT_IGNORED` 并继续等待。
+- **[致命熔断]**：严禁仅在 stdout 文本打印 `WAITING_REVIEW_OK_NEXT` 充当握手；该报文必须由真实 Tool Call（`sessions_send` 或等效 IPC）发出。若 `raw_logs` 未捕获对应 toolCall，将直接判定为伪造。
 
 ### 1.3 时间锚点协议 (必须遵守)
 **开始执行任何命令前**：
