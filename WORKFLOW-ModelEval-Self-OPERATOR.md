@@ -1,6 +1,6 @@
 # WORKFLOW — ModelEval-Self（OPERATOR / 主控台编排者手册）
 
-> Version: `1.5`
+> Version: `1.6`
 > Last Updated: `2026-02-20`
 > Status: `active`
 
@@ -107,6 +107,8 @@ OPERATOR 必须在 `review_<Run_ID>_round2.md` 末尾追加 `Delta Analysis`：
 - [ ] 已将测试上下文（分支名、目标模型）无歧义地传递给 `sub0`。
 - [ ] 派发 `sub0` 后，**已激活同步等待锁**，未提前结束当前对话回合。
 - [ ] `sub0` 交付后，已通过 CLI 命令物理核验 `raw_logs/` 目录的真实性。
+- [ ] 已验证 `receipts/exec_checkpoint_<Run_ID>_round*.jsonl` 存在，并完成 checkpoint 闭环判定（T1~T4 全 MATCH）。
+- [ ] 已验证 Challenge Structured Record（Q1~Q4）四字段完整，形成 challenge 闭环 COMPLETE。
 - [ ] 已完成“轨道 2”区块的验收与填写。
 - [ ] 已在 `review_<Run_ID>_round2.md` 追加 `Delta Analysis`（允许 `UNDECIDED / INVALID_COMPARISON`）。
 - [ ] 终局前已执行占位符拦截检查：`grep -RInE "<PASS/FAIL|OPERATOR_OVERRIDE_BLOCK_START" Audit-Report/<YYYY-MM-DD>/review_<Run_ID>_round*.md`；若命中则不得结束/推送。

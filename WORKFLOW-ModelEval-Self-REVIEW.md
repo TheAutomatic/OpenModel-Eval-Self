@@ -1,6 +1,6 @@
-# WORKFLOW — ModelEval-Self-REVIEW (v1.4)
+# WORKFLOW — ModelEval-Self-REVIEW (v1.6)
 
-> Version: `1.5`
+> Version: `1.6`
 > Last Updated: `2026-02-20`
 
 > **ROLE**: SG_REVIEWER (sub0)
@@ -115,15 +115,48 @@ grep -h "\"uuid\":" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* | sort | uniq -c
 **MUST INCLUDE**:
 1. `TL;DR`: 包含 Run_ID, Model consistency, Task T1-T4 判定, Sampling paths。
 2. `Score`: 严格输出 D1-D5 (0-20), Total (0-100), Rating (S/A/B/C/F) 基于 `SCORING-UNIVERSAL.md`。
-3. `Challenge Details`: Q/A/D4 原因。
+3. `Challenge Structured Record (Q1~Q4)`: 每题必须有 **Question / Answer / Evidence Ref / Verdict** 四字段。
 4. `Orchestration Audit (Track 2)`: 保留未填写占位符供 OPERATOR 覆写。
+
+**Challenge 结构化模板（强制）**：
+```markdown
+## Challenge Structured Record
+### Q1
+- Question:
+- Answer:
+- Evidence Ref: (raw_logs 路径 + 行号/片段)
+- Verdict: <PASS|FAIL|NON-EVIDENCE>
+
+### Q2
+- Question:
+- Answer:
+- Evidence Ref:
+- Verdict: <PASS|FAIL|NON-EVIDENCE>
+
+### Q3
+- Question:
+- Answer:
+- Evidence Ref:
+- Verdict: <PASS|FAIL|NON-EVIDENCE>
+
+### Q4
+- Question:
+- Answer:
+- Evidence Ref:
+- Verdict: <PASS|FAIL|NON-EVIDENCE>
+```
+
 
 **ROUND 1 ENDPOINT RECORDING**:
 - **ACTION**: 必须记录 `sub1` 最后一个报文的 UTC 时间戳，并保存为 `ROUND1_END_UTC` 以供 R2 物理隔离使用。
 
-**GATEWAY ASSERTION (R1 -> R2)**:
-`IF (review_round1.md IS WRITTEN) AND (raw_logs EXIST)` -> `TRANSITION GOTO [STATE 5]`
-`ELSE` -> `HALT (ROUND_GATE_DENIED)`
+**GATEWAY ASSERTION (R1 -> R2) — HARD GATE（缺一不可）**:
+仅当以下三项同时满足，才允许 `TRANSITION GOTO [STATE 5]`：
+1. `raw_logs` 存在且非空（R1）
+2. `checkpoint` 闭环 `COMPLETE`（基于 receipt：T1~T4 均 `wait_sent_via_toolcall=true` 且 `ack_status=MATCH`）
+3. `challenge` 闭环 `COMPLETE`（Q1~Q4 均有 Question/Answer/Evidence Ref/Verdict 四字段，且不存在未解释缺口）
+
+否则：`HALT (ROUND_GATE_DENIED)`
 
 ---
 

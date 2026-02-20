@@ -49,6 +49,14 @@ else
   fail "Delta Analysis markers missing in round2"
 fi
 
+echo "[CHECK] challenge structured record (Q1~Q4)"
+if grep -nE '^## Challenge Structured Record|^### Q1|^### Q2|^### Q3|^### Q4' "$R1" "$R2" >/dev/null 2>&1 \
+  && grep -nE 'Question:|Answer:|Evidence Ref:|Verdict:' "$R1" "$R2" >/dev/null 2>&1; then
+  ok "challenge structured markers found"
+else
+  fail "challenge structured record incomplete (Q1~Q4 + 4 fields)"
+fi
+
 echo "[CHECK] raw logs existence and non-empty"
 if [[ -d "$RAW_DIR" ]]; then
   ok "found $RAW_DIR"
@@ -67,6 +75,27 @@ if [[ -d "$RAW_DIR" ]]; then
   fi
 else
   fail "missing $RAW_DIR"
+fi
+
+echo "[CHECK] checkpoint receipts and hard-gate closure"
+RECEIPT_DIR="${BASE}/receipts"
+if [[ -d "$RECEIPT_DIR" ]]; then
+  ok "found $RECEIPT_DIR"
+  RCP_COUNT=$(find "$RECEIPT_DIR" -maxdepth 1 -type f -name "exec_checkpoint_${RUN_ID}_round*.jsonl" | wc -l | tr -d ' ')
+  if [[ "$RCP_COUNT" -ge 2 ]]; then
+    ok "receipt files count: $RCP_COUNT"
+  else
+    fail "receipt files count too low: $RCP_COUNT (expected >=2)"
+  fi
+
+  if grep -RInE '"wait_sent_via_toolcall"[[:space:]]*:[[:space:]]*true' "$RECEIPT_DIR"/exec_checkpoint_${RUN_ID}_round*.jsonl >/dev/null 2>&1 \
+    && grep -RInE '"ack_status"[[:space:]]*:[[:space:]]*"MATCH"' "$RECEIPT_DIR"/exec_checkpoint_${RUN_ID}_round*.jsonl >/dev/null 2>&1; then
+    ok "receipt contains toolcall=true and ack_status=MATCH markers"
+  else
+    fail "receipt closure markers missing (toolcall=true and/or ack_status=MATCH)"
+  fi
+else
+  fail "missing $RECEIPT_DIR"
 fi
 
 echo "[CHECK] opinion files present (operator/subagentA/subagentB)"

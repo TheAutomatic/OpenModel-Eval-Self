@@ -1,5 +1,8 @@
 # WORKFLOW — ModelEval-Self（EXEC / 执行版）
 
+> Version: `1.6`
+> Last Updated: `2026-02-20`
+
 > **Role**：SG_EXECUTOR（subagent / 执行者）
 >
 > ```yaml
@@ -52,6 +55,20 @@ git rev-parse --abbrev-ref HEAD
 - **阻塞等待**：必须停止执行后续任务，直到 Reviewer 明确回复 `OK_NEXT <CHECKPOINT_ID>`。
 - **防乱序**：若收到不匹配当前 ID 的 `OK_NEXT`，回 `STALE_CHECKPOINT_IGNORED` 并继续等待。
 - **[致命熔断]**：严禁仅在 stdout 文本打印 `WAITING_REVIEW_OK_NEXT` 充当握手；该报文必须由真实 Tool Call（`sessions_send` 或等效 IPC）发出。若 `raw_logs` 未捕获对应 toolCall，将直接判定为伪造。
+
+### 1.2.1 CHECKPOINT 机读回执（Receipt）
+每次 checkpoint 必须落盘一条机读回执到：
+`Audit-Report/<YYYY-MM-DD>/receipts/exec_checkpoint_<Run_ID>_round<round>.jsonl`
+
+**最小字段（JSON 行）**：
+- `run_id`, `round`, `checkpoint_id`, `task` (`T1~T4`), `seq`
+- `wait_sent_via_toolcall` (`true/false`)
+- `wait_sent_utc`, `ack_recv_utc`
+- `ack_status` (`MATCH|STALE|TIMEOUT`)
+
+**闭环判定标准（EXEC 侧）**：
+- `T1~T4` 全部存在 `wait_sent_via_toolcall=true`
+- 且每个 checkpoint 均有 `ack_status=MATCH`。
 
 ### 1.3 时间锚点协议 (必须遵守)
 **开始执行任何命令前**：
