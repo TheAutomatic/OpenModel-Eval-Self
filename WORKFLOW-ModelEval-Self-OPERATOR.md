@@ -110,3 +110,4 @@ OPERATOR 必须在 `review_<Run_ID>_round2.md` 末尾追加 `Delta Analysis`：
 - [ ] 已完成“轨道 2”区块的验收与填写。
 - [ ] 已在 `review_<Run_ID>_round2.md` 追加 `Delta Analysis`（允许 `UNDECIDED / INVALID_COMPARISON`）。
 - [ ] 终局前已执行占位符拦截检查：`grep -RInE "<PASS/FAIL|OPERATOR_OVERRIDE_BLOCK_START" Audit-Report/<YYYY-MM-DD>/review_<Run_ID>_round*.md`；若命中则不得结束/推送。
+- [ ] 终局前已执行收尾闸门脚本：`scripts/operator_closure_gate.sh <Run_ID> <YYYY-MM-DD>`；仅当返回 `[GATE] PASS` 才允许结束/推送。
