@@ -29,7 +29,7 @@
 
 **STATE 1 封闭规则（硬约束）**：
 - 在 `STATE 1` 期间，sub0 必须持续完成 checkpoint 握手闭环（收到 `WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>` 后返回匹配的 `OK_NEXT <CHECKPOINT_ID>`）。
-- 无论采用何种可审计交互方式，必须保证握手证据可在 raw_logs/receipt 中回溯。
+- 必须保证握手证据可在 raw_logs/receipt 中回溯。
 - 禁止在未收到 `T4 + MATCH` 前跳转到 `STATE 2`。
 
 ### [EVENT] INTER_SESSION_MESSAGE_RECEIVED

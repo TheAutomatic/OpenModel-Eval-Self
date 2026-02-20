@@ -57,11 +57,11 @@ git rev-parse --abbrev-ref HEAD
 - 每个 CHECKPOINT 必须生成唯一标识：`CHECKPOINT_ID=<Run_ID>/<round>/<Tn>/<seq>`。
 - **固定顺序（不可变更）**：
   1) 先落盘 receipt（`wait_sent_via_toolcall=true`，`ack_status=WAITING`）
-  2) 通过任一可审计工具通道向 Reviewer 发送：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`
-  3) 阻塞等待 `OK_NEXT <CHECKPOINT_ID>`
+  2) 发出：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`
+  3) 阻塞等待：`OK_NEXT <CHECKPOINT_ID>`
   4) 收到后回填 receipt：`ack_status=MATCH` 与 `ack_recv_utc`
 - **防乱序**：若收到不匹配当前 ID 的 `OK_NEXT`，回 `STALE_CHECKPOINT_IGNORED` 并继续等待。
-- **[致命熔断]**：严禁仅在 stdout 文本打印 `WAITING_REVIEW_OK_NEXT` 充当握手；该报文必须由真实 Tool Call（任一可审计 IPC/消息工具）发出。若 `raw_logs` 未捕获对应 toolCall，立即 `HARD_FAIL` 并停止本轮。
+- **[致命熔断]**：严禁仅在 stdout 文本打印 `WAITING_REVIEW_OK_NEXT` 充当握手；若 `raw_logs`/receipt 无法回溯握手证据，立即 `HARD_FAIL` 并停止本轮。
 
 ### 1.2.1 CHECKPOINT 机读回执（Receipt）
 每次 checkpoint 必须落盘一条机读回执到：
@@ -170,7 +170,7 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 - [ ] `Round Assignment Check` 一致
 - [ ] 证据块使用 `1) [OBSERVED] ...` 编号格式
 - [ ] 每个 CHECKPOINT 含 `<Run_ID>/<round>/<Tn>/<seq>`
-- [ ] Checkpoint 物理落盘后，已通过可审计工具通道 Push 报文
+- [ ] Checkpoint 物理落盘后，WAITING/OK_NEXT 报文已形成可回溯闭环
 - [ ] 已完成轻量卫生检查
 - [ ] 已贴出 ANCHOR_UTC、MARKER_UTC 与 candidate sessions
 - [ ] T2/T3 文件名与分支含 round 后缀，未跨轮覆写
