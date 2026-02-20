@@ -1,6 +1,6 @@
-# WORKFLOW — ModelEval-Self-REVIEW (v1.7)
+# WORKFLOW — ModelEval-Self-REVIEW (v1.5.2)
 
-> Version: `1.7`
+> Version: `1.5.2`
 > Last Updated: `2026-02-20`
 
 > **ROLE**: SG_REVIEWER (sub0)

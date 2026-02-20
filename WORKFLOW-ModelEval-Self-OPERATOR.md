@@ -1,6 +1,6 @@
 # WORKFLOW — ModelEval-Self（OPERATOR / 主控台编排者手册）
 
-> Version: `1.7`
+> Version: `1.5.2`
 > Last Updated: `2026-02-20`
 > Status: `active`
 
