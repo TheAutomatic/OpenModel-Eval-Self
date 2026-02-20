@@ -1,8 +1,5 @@
 # WORKFLOW — ModelEval-Self（EXEC / 执行版）
 
-> Version: `1.5.2`
-> Last Updated: `2026-02-20`
-
 > **Role**：SG_EXECUTOR（subagent / 执行者）
 >
 > ```yaml
