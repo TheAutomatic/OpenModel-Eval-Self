@@ -14,6 +14,8 @@
 **TRIGGER**: `OPERATOR` 派发 `sub0`。
 **ASSERTIONS**:
 - 参数必须包含: `<Run_ID>`, `<TARGET_MODEL>`, `<SELF_AUDIT_BRANCH>`。
+- `<Run_ID>` 命名必须符合：`<Batch_ID>_M<Seq>`。
+- `<Batch_ID>` 命名必须符合：`BATCH_<YYYYMMDD>_<HHMM>_<Tag>`。
 - 否则: `ACTION -> Terminate (PRECHECK_FAILED_MISSING_INPUT)`。
 **TRANSITION**: `GOTO [STATE 1]`
 
