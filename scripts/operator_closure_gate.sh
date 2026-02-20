@@ -57,6 +57,13 @@ else
   fail "challenge structured record incomplete (Q1~Q4 + 4 fields)"
 fi
 
+echo "[CHECK] D4 auto-check markers"
+if grep -nE 'CHALLENGE_COMPLETE=|D4_FORCED_TO_ZERO=' "$R1" "$R2" >/dev/null 2>&1; then
+  ok "D4 auto-check markers found"
+else
+  fail "D4 auto-check markers missing"
+fi
+
 echo "[CHECK] raw logs existence and non-empty"
 if [[ -d "$RAW_DIR" ]]; then
   ok "found $RAW_DIR"
@@ -94,8 +101,22 @@ if [[ -d "$RECEIPT_DIR" ]]; then
   else
     fail "receipt closure markers missing (toolcall=true and/or ack_status=MATCH)"
   fi
+
+  if grep -RInE '"degraded"[[:space:]]*:[[:space:]]*true|DEGRADED_PATH_USED' "$RECEIPT_DIR"/degraded_checkpoint_${RUN_ID}_round*.jsonl "$R1" "$R2" >/dev/null 2>&1; then
+    warn "degraded checkpoint path detected (ensure reason + fallback trace present)"
+  else
+    ok "no degraded checkpoint path detected"
+  fi
 else
   fail "missing $RECEIPT_DIR"
+fi
+
+echo "[CHECK] hash manifest files"
+MANI_COUNT=$(find "$BASE" -maxdepth 1 -type f -name "manifest_${RUN_ID}_round*.sha256" | wc -l | tr -d ' ')
+if [[ "$MANI_COUNT" -ge 2 ]]; then
+  ok "manifest files count: $MANI_COUNT"
+else
+  fail "manifest files missing or insufficient (expected >=2)"
 fi
 
 echo "[CHECK] opinion files present (operator/subagentA/subagentB)"

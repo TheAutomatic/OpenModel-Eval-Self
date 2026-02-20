@@ -1,6 +1,6 @@
 # WORKFLOW — ModelEval-Self（EXEC / 执行版）
 
-> Version: `1.6`
+> Version: `1.7`
 > Last Updated: `2026-02-20`
 
 > **Role**：SG_EXECUTOR（subagent / 执行者）
@@ -51,10 +51,20 @@ git rev-parse --abbrev-ref HEAD
 
 ### 1.2 CHECKPOINT 跨会话握手协议
 - 每个 CHECKPOINT 必须生成唯一标识：`CHECKPOINT_ID=<Run_ID>/<round>/<Tn>/<seq>`。
-- 必须使用 `sessions_send` 工具定向 Push 给 Reviewer，明确写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
+- 默认必须使用 `sessions_send` 工具定向 Push 给 Reviewer，明确写：`WAITING_REVIEW_OK_NEXT <CHECKPOINT_ID>`。
 - **阻塞等待**：必须停止执行后续任务，直到 Reviewer 明确回复 `OK_NEXT <CHECKPOINT_ID>`。
 - **防乱序**：若收到不匹配当前 ID 的 `OK_NEXT`，回 `STALE_CHECKPOINT_IGNORED` 并继续等待。
 - **[致命熔断]**：严禁仅在 stdout 文本打印 `WAITING_REVIEW_OK_NEXT` 充当握手；该报文必须由真实 Tool Call（`sessions_send` 或等效 IPC）发出。若 `raw_logs` 未捕获对应 toolCall，将直接判定为伪造。
+
+### 1.2.2 能力探测与降级通道（P1）
+- **能力探测**：执行前先检测 `sessions_send` 是否可用。
+- **降级条件**：仅当工具不可用或调用失败时，允许启用降级。
+- **降级通道**：写入 `Audit-Report/<YYYY-MM-DD>/receipts/degraded_checkpoint_<Run_ID>_round<round>.jsonl`，记录：
+  - `checkpoint_id`, `task`, `seq`, `degraded=true`
+  - `reason`（如 `SESSIONS_SEND_UNAVAILABLE` / `TOOL_CALL_FAILED`）
+  - `fallback_channel`（如 `INTER_SESSION_MESSAGE_TEXT_ONLY`）
+  - `wait_sent_utc`, `ack_recv_utc`, `ack_status`
+- **强制留痕**：只要走过降级，最终报告必须在 TL;DR 标记 `DEGRADED_PATH_USED`。
 
 ### 1.2.1 CHECKPOINT 机读回执（Receipt）
 每次 checkpoint 必须落盘一条机读回执到：

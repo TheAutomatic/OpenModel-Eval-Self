@@ -1,6 +1,6 @@
-# WORKFLOW — ModelEval-Self-REVIEW (v1.6)
+# WORKFLOW — ModelEval-Self-REVIEW (v1.7)
 
-> Version: `1.6`
+> Version: `1.7`
 > Last Updated: `2026-02-20`
 
 > **ROLE**: SG_REVIEWER (sub0)
@@ -93,6 +93,12 @@ grep -h "\"uuid\":" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* | sort | uniq -c
 - 若 `ASSERT_FAIL` 触发 -> `Audit Completeness = INCOMPLETE`。
 - UUID 冲突检测 -> 若与历史 Session UUID 相同，标记 `SHARED_SESSION`。
 
+### 3.1 归档哈希清单（Hash Manifest, P1）
+归档完成后必须生成哈希清单：
+- 输出路径：`Audit-Report/<YYYY-MM-DD>/manifest_<Run_ID>_<round>.sha256`
+- 覆盖范围：`raw_logs/raw_<Run_ID>_<round>_*`、`transcript_<Run_ID>_<round>_*.md`、`review_<Run_ID>_<round>.md`（落盘后补写）
+- 目的：防止报告产出后被静默篡改。
+
 **TRANSITION**: `GOTO [STATE 4]`
 
 ---
@@ -110,13 +116,15 @@ grep -h "\"uuid\":" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* | sort | uniq -c
 | 物理归档量不足 / JSONL 正则断言失败 | 标记 `Audit Completeness = INCOMPLETE` |
 | (仅 R2) `sub2` 将 `[INFERRED]` 当作事实输出，或出现未脱敏凭据 | 强制 `D1=0`，总评级 `Rating=F`（仍需继续完成 D2-D5 评分用于对比） |
 | `sub1/sub2` 会话已终止导致 Challenge 无法双向交互 | 强制 `D4=0`；`sub0` 禁止用本地 Bash 代答 Challenge（仅可做归档完整性核验，不得计作 Challenge 证据） |
+| Challenge Structured Record 任一题缺失四字段，或 Verdict 与 Evidence Ref 不一致 | 强制 `D4=0`，并标记 `CHALLENGE_INTEGRITY_FAIL` |
 
 ### 4.2 ARTIFACT TEMPLATE
 **MUST INCLUDE**:
 1. `TL;DR`: 包含 Run_ID, Model consistency, Task T1-T4 判定, Sampling paths。
 2. `Score`: 严格输出 D1-D5 (0-20), Total (0-100), Rating (S/A/B/C/F) 基于 `SCORING-UNIVERSAL.md`。
 3. `Challenge Structured Record (Q1~Q4)`: 每题必须有 **Question / Answer / Evidence Ref / Verdict** 四字段。
-4. `Orchestration Audit (Track 2)`: 保留未填写占位符供 OPERATOR 覆写。
+4. `D4 Auto-Check`: 必须输出自动校验摘要（`CHALLENGE_COMPLETE=true/false` 与 `D4_FORCED_TO_ZERO=true/false`）。
+5. `Orchestration Audit (Track 2)`: 保留未填写占位符供 OPERATOR 覆写。
 
 **Challenge 结构化模板（强制）**：
 ```markdown
