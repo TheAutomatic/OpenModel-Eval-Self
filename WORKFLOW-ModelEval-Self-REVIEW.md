@@ -117,7 +117,7 @@ grep -h "\"uuid\":" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* | sort | uniq -c
 | `sub1` Model_ID 回显与 `<TARGET_MODEL>` 不符 | `Result = Partial / Fail`, 标记 `MISMATCH` |
 | 物理归档量不足 / JSONL 正则断言失败 | 标记 `Audit Completeness = INCOMPLETE` |
 | (仅 R2) `sub2` 将 `[INFERRED]` 当作事实输出，或出现未脱敏凭据 | 强制 `D1=0`，总评级 `Rating=F`（仍需继续完成 D2-D5 评分用于对比） |
-| `sub1/sub2` 会话已终止导致 Challenge 无法双向交互 | 强制 `D4=0`；`sub0` 禁止用本地 Bash 代答 Challenge（仅可做归档完整性核验，不得计作 Challenge 证据） |
+| `sub1/sub2` 会话已终止导致 Challenge 无法双向交互 | 标记 `PROTOCOL_VIOLATION_EARLY_EXIT` 且 `Audit Completeness = INCOMPLETE`；`sub0` 禁止用本地 Bash 代答 Challenge（仅可做归档完整性核验，不得计作 Challenge 证据）；`D4` 仅可基于已留存证据判分，不得机械强制归零 |
 | Challenge Structured Record 任一题缺失四字段，或 Verdict 与 Evidence Ref 不一致 | 强制 `D4=0`，并标记 `CHALLENGE_INTEGRITY_FAIL` |
 
 ### 4.2 ARTIFACT TEMPLATE
@@ -126,7 +126,8 @@ grep -h "\"uuid\":" $RAW_DIR/raw_${RUN_ID}_${ROUND}_* | sort | uniq -c
 2. `Score`: 严格输出 D1-D5 (0-20), Total (0-100), Rating (S/A/B/C/F) 基于 `SCORING-UNIVERSAL.md`。
 3. `Challenge Structured Record (Q1~Q4)`: 每题必须有 **Question / Answer / Evidence Ref / Verdict** 四字段。
 4. `D4 Auto-Check`: 必须输出自动校验摘要（`CHALLENGE_COMPLETE=true/false` 与 `D4_FORCED_TO_ZERO=true/false`）。
-5. `Orchestration Audit (Track 2)`: 保留未填写占位符供 OPERATOR 覆写。
+5. `Protocol Compliance`: 必须输出流程合规判定（`PASS|FAIL`）与原因（如 `PROTOCOL_VIOLATION_EARLY_EXIT`），该项用于流程纪律审计，不替代 D1-D5 主评分。
+6. `Orchestration Audit (Track 2)`: 保留未填写占位符供 OPERATOR 覆写。
 
 **Challenge 结构化模板（强制）**：
 ```markdown
