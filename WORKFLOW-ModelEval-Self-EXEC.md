@@ -18,6 +18,13 @@
 
 ## 0) Run ID / Round 绑定
 - `run_id=<Run_ID>` 与本轮执行的 `round` (`1` 或 `2`) 由派工参数指定。
+- 命名约束：`Run_ID=<Batch_ID>_M<Seq>`，且 `Batch_ID=BATCH_<YYYYMMDD>_<HHMM>_<Tag>`。
+- 固定产物命名（不得自定义变体）：
+  - `/tmp/openclaw_selfaudit_<Run_ID>_round<round>.txt`
+  - `Audit-Report/<YYYY-MM-DD>/selfaudit_<Run_ID>_round<round>_artifact.txt`
+  - `Audit-Report/<YYYY-MM-DD>/receipts/exec_checkpoint_<Run_ID>_round<round>.jsonl`
+  - `Audit-Report/<YYYY-MM-DD>/receipts/degraded_checkpoint_<Run_ID>_round<round>.jsonl`
+  - `Audit-Report/<YYYY-MM-DD>/exec_<Run_ID>_round<round>.md`
 - 严禁在同一会话里跨轮执行。
 
 ---
@@ -143,7 +150,7 @@ timeout 15s ssh -i ~/.ssh/id_ed25519_seoul_scout -p 23681 moss@so.3399.work.gd '
 ---
 
 ## 3) 报告输出格式
-仅输出本轮的 `exec_<Run_ID>_round<round>.md`。
+仅输出本轮的 `Audit-Report/<YYYY-MM-DD>/exec_<Run_ID>_round<round>.md`。
 
 ```markdown
 ## EXEC REPORT
