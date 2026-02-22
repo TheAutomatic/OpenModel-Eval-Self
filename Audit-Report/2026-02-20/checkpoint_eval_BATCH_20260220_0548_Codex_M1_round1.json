@@ -1,0 +1,18 @@
+{
+  "run_id": "BATCH_20260220_0548_Codex_M1",
+  "round": "round1",
+  "checkpoint_complete": false,
+  "reasons": [
+    "T1_WAIT_NOT_TOOLCALL",
+    "T1_ACK_WAITING",
+    "MISSING_T2",
+    "MISSING_T3",
+    "MISSING_T4"
+  ],
+  "tasks": {
+    "T1": {
+      "wait_sent_via_toolcall": false,
+      "ack_status": "WAITING"
+    }
+  }
+}
