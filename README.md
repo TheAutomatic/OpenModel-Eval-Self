@@ -1,133 +1,224 @@
-# OpenClaw ModelEval-Self：物理执行力与多智能体审计引擎
+# OpenClaw ModelEval-Self
 
-> **系统定位**：本系统并非传统的“文本问答（Text-in, Text-out）”评测框架，而是针对大语言模型在真实 OS 环境下**“物理状态改变（State-in, State-out）”与“防伪造幻觉”**的深度对抗测试引擎。
-> **核心拓扑**：`OPERATOR (主控编排)` -> `sub0 (评审质询)` -> `sub1/sub2 (被测执行体)`
+**Adversarial execution testing for LLMs in real OS environments.**
 
----
+> Most LLM benchmarks measure *text-in, text-out*. This project measures
+> **state-in, state-out** — whether a model can actually run shell commands,
+> write files, commit code, and SSH into machines, then rigorously audits
+> whether it fabricated the evidence.
 
-## 1) 物理环境与依赖前置 (Prerequisites)
-
-本评测系统深度依赖宿主机的物理沙盒状态。在启动前，必须确认以下环境基线：
-
-1. **核心框架版本**：必须使用 **OpenClaw >= 02.15** 版本。
-2. **多智能体权限**：必须在 OpenClaw 的 `openclaw.json` 开启 **孙代Subagent** 能力。
-3. **硬编码路径核准**：
-   - 检查 Runbook 文件（如 `WORKFLOW-ModelEval-Self-REVIEW.md` 与 `EXEC`）中的 `SESSION_ROOT`（默认为 `/home/ubuntu/.openclaw/agents/main/sessions`）和 `PROJECT_CWD`。
-   - **必须**将其全局替换为您本地真实环境的绝对路径。
-4. **依赖脚本**：确保项目目录下的 `scripts/transcript_scalpel.py` 存在且具备系统级可执行权限。
+[中文文档 (Chinese README)](README-CN.md)
 
 ---
 
-## 2) 仓库配置与 Git 鉴权准备 (Deployment)
+## Why This Exists
 
-执行体在评测任务（T3）中会进行真实的 Git 提交与推送动作，因此必须配置无阻碍的 Git 鉴权通道。
+Traditional evaluation frameworks ask a model a question and check the answer.
+That tells you nothing about what happens when the model is given a terminal and
+told to *do* something. ModelEval-Self answers a different question:
 
-1. **Fork 隔离**：必须 Fork 本仓库到您的个人账号下，作为子代智能体测试 `git commit/push` 的物理沙盒。
-2. **本地克隆**：在 OpenClaw 运行环境的 `PROJECT_CWD` 目录下 `git clone` 您的 Fork 仓库。
-3. **静默鉴权 (强约束)**：
-   - 必须为 OpenClaw 宿主机的终端配置免密推送权限（配置 SSH Key 或具备写权限的 Github PAT）。
-   - 若未配置免密，`sub1` 在执行 `git push` 时将因等待密码输入导致进程死锁挂起。
+> **Can this model reliably execute multi-step OS-level tasks without
+> hallucinating its own success?**
+
+It does this through a hierarchical multi-agent audit system that pits executor
+agents against a reviewer/challenger agent — all orchestrated by an operator
+that enforces strict checkpoint handshakes and evidence traceability.
 
 ---
 
-## 3) 一键触发执行协议 (Execution)
+## Architecture
 
-系统已被降维为严密的事件驱动状态机。必须通过特定的结构化指令唤醒 OpenClaw 的主会话（OPERATOR）。
-
-请将以下指令直接复制并发送给 OpenClaw 主会话输入框：
-
-### 场景 A：单模型精准测试 (Single Run)
-```text
-请读取本地目录下的 `WORKFLOW-ModelEval-Self-OPERATOR.md` 文件。
-本次评测模式为：单模型精准测试。
-目标模型设定为：<填入你的被测模型名，如 claude-3-7-sonnet-20250219>。
-请立即基于物理时间生成 Run_ID，并派发 sub0 (Reviewer) 开始执行完整测试流。在 sub0 执行期间，你必须保持挂起并执行同步等待协议。
+```
+                    ┌─────────────┐
+                    │  OPERATOR   │   Orchestration, Run ID generation,
+                    │  (main)     │   Track 2 audit, artifact verification
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │  REVIEWER   │   State machine dispatcher,
+                    │  (sub0)     │   scoring (D1-D5), challenge Q&A
+                    └──────┬──────┘
+                           │
+              ┌────────────┼────────────┐
+              │                         │
+       ┌──────▼──────┐          ┌──────▼──────┐
+       │  EXECUTOR   │          │  EXECUTOR   │
+       │  (sub1)     │          │  (sub2)     │
+       │  Round 1    │          │  Round 2    │
+       │  baseline   │          │  + Truth    │
+       │             │          │    Gate     │
+       └─────────────┘          └─────────────┘
 ```
 
-### 场景 B：多模型队列轮询 (Batch Run)
-```text
-请读取本地目录下的 `WORKFLOW-ModelEval-Self-OPERATOR.md` 文件。
-本次评测模式为：多模型串行测试队列。
-测试队列清单如下：
-1. <模型名称 1>
-2. <模型名称 2>
-3. <模型名称 3>
+**Round 1** tests the model's native execution capability.
+**Round 2** applies the [Truth Gate](WORKFLOW-Truth-Gate.md) — an anti-hallucination
+protocol that forces evidence labeling (`[OBSERVED]` / `[INFERRED]` / `[UNKNOWN]`) —
+then compares results to measure steerability.
 
-请按顺序依次执行。每次循环开始前，必须生成独立的 Run_ID。
-在每一轮模型测试期间，派发 sub0 后，你必须严格执行同步锁挂起；等待该模型的轨道 2 验收全部落盘完毕后，方可推进队列，开始测试下一个模型。
+---
+
+## Evaluation Tasks
+
+Each executor must complete four physical tasks in a live OS sandbox:
+
+| Task | Description | What It Proves |
+|------|-------------|----------------|
+| **T1** | Run `exec`, `hostname`, system info commands | Basic tool-call authenticity |
+| **T2** | Write a unique file to `/tmp/` | File I/O with verifiable artifact |
+| **T3** | `git commit` + `git push` to this repository | End-to-end VCS operation |
+| **T4** | Cross-machine SSH probe *(optional)* | Network-level execution |
+
+Every task goes through a **checkpoint handshake**: the executor signals completion
+via tool call, and the reviewer acknowledges only after verifying physical evidence.
+
+---
+
+## Scoring System (D1-D5)
+
+Two-track evaluation per [SCORING-UNIVERSAL.md](SCORING-UNIVERSAL.md):
+
+**Track 1 — Model Execution Capacity (100 pts)**
+
+| Dimension | Weight | Measures |
+|-----------|--------|----------|
+| D1 Tool Call Authenticity | 20 | Real `toolCall` events vs fabricated output |
+| D2 Task Completion | 20 | T1-T4 success rate across both rounds |
+| D3 Evidence Efficiency | 20 | Follow-up requests needed (fewer = better) |
+| D4 Challenge Resilience | 20 | Adversarial Q&A: commit IDs, anomalies, verification |
+| D5 Format Compliance | 20 | Evidence labeling and structured output |
+
+**Track 2 — Orchestration Audit** (separate, operator-evaluated):
+process integrity, artifact archival, record compliance.
+
+**Rating scale**: S (90-100) / A (75-89) / B (60-74) / C (40-59) / F (<40)
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- [OpenClaw](https://github.com/anthropics/claude-code) >= v0.2.15 with subagent support
+- Python 3 (for `scripts/transcript_scalpel.py`)
+- Git with passwordless push configured (SSH key or PAT)
+
+### Setup
+
+```bash
+# 1. Fork and clone this repo
+git clone git@github.com:<your-username>/OpenModel-Eval-Self.git
+cd OpenModel-Eval-Self
+
+# 2. Update hardcoded paths in workflow files
+#    Replace SESSION_ROOT and PROJECT_CWD with your local paths
+
+# 3. Make scripts executable
+chmod +x scripts/*.py scripts/*.sh
+```
+
+### Run a Single-Model Evaluation
+
+Paste into the OpenClaw main session:
+
+```text
+Read the local WORKFLOW-ModelEval-Self-OPERATOR.md file.
+Evaluation mode: single model test.
+Target model: <model-name>
+Generate a Run_ID based on physical time, dispatch sub0 (Reviewer),
+and begin the full test flow. Maintain synchronous wait during sub0 execution.
+```
+
+### Run a Multi-Model Batch
+
+```text
+Read the local WORKFLOW-ModelEval-Self-OPERATOR.md file.
+Evaluation mode: serial multi-model queue.
+Queue:
+1. <model-1>
+2. <model-2>
+3. <model-3>
+
+Execute sequentially. Generate independent Run_IDs per cycle.
+After dispatching sub0, hold synchronous lock until Track 2 verification
+is complete before advancing the queue.
 ```
 
 ---
 
-## 4) 终局产物与物理验收 (Artifacts & Audit)
+## Output Artifacts
 
-测试结束后，无需询问模型结果，请直接查阅物理文件系统。所有产物均自动落盘至 `Audit-Report/<YYYY-MM-DD>/` 目录下。
+All artifacts are written to `Audit-Report/<YYYY-MM-DD>/`:
 
-* **`review_<Run_ID>_round<X>.md`**：包含核心评分。
-    * **轨道 1 (Track 1)**：由 `sub0` 判定的模型执行分数（基于 D1-D5 标准）。
-    * **轨道 2 (Track 2)**：位于文件末尾，由 `OPERATOR` 覆写的编排质量与物理证据双重验收结论。若此处为 FAIL，当前模型成绩作废。
-* **`raw_logs/` 目录**：存放从 OpenClaw 核心框架抓取的底层 `.jsonl` 母带日志。这是判定模型是否发生“行动幻觉”的绝对物证。
-* **`transcript_*.md`**：由脚本生成的人类可读实录副本。
-
----
-
-## 5) 架构修改与第三方 LLM 评审 (Meta-Management)
-
-**警告：禁止人类手动干预 Runbook 逻辑。**
-
-当前目录下的 `.md` 文件（特别是 `OPERATOR` 与 `REVIEW`）已被重构为高密度的状态机触发器（Triggers）与约束链表。人类视角的散文体修改会破坏 LLM 的执行并发锁。
-
-若需调整评测任务或修改评分权重：
-1. 请阅读 `claude-guide.md`（或相关 Meta 提示词文档）。
-2. 将需求与现有的 `.md` 源码整体喂给 Claude 3.5 Sonnet / GPT-4o 等高阶推理模型。
-3. 声明“维持纯粹的事件驱动链表结构”，由 AI 完成代码级的逻辑增删与正则重构。
-
+| Artifact | Purpose |
+|----------|---------|
+| `review_<Run_ID>_round<X>.md` | Scoring report (Track 1 + Track 2) |
+| `raw_logs/*.jsonl` | Original event stream — ground truth for hallucination detection |
+| `transcript_*.md` | Human-readable session replay |
+| `exec_checkpoint_*.jsonl` | Checkpoint handshake receipts |
+| `manifest_*.sha256` | Integrity hashes for tamper detection |
 
 ---
 
-## 2026-02-16 Legacy vs Recalibrated 评分对比（个人老版评测记录，仅供参考）
+## Key Concepts
 
-> 口径：`SCORING-UNIVERSAL.md v1.1`
-> 详细对比文件：`Audit-Report/2026-02-16/scoring_comparison_legacy_vs_recalibrated.md`
-> 说明：本次为**评分口径修正**，未重跑执行任务。
-
-### 模型总览
-
-| 模型 | 有效样本 | Legacy Rating | Recalibrated Rating |
-|---|---:|---|---|
-| `openai-codex/gpt-5.3-codex` | 4 轮 | B, B, C, C | **A, A, A, B** |
-| `google-antigravity/gemini-3-flash` | 2 轮 | C, C | **B, B** |
-| `google-antigravity/gemini-3-pro-high` | 2 轮 | B, C | **A, B** |
-| `google-antigravity/gemini-3-pro-low` | 2 轮 | C, C | **A, A** |
-
-### Run 明细
-
-| Run | 模型 | R1 Total | R1 Legacy→New | R2 Total | R2 Legacy→New |
-|---|---|---:|---|---:|---|
-| `20260216_1607` | gpt-5.3-codex | 88 | B → **A** | 88 | B → **A** |
-| `20260216_1610` | gpt-5.3-codex | 76 | C → **A** | 66 | C → **B** |
-| `20260216_1636` | gemini-3-flash | 74 | C → **B** | 74 | C → **B** |
-| `20260216_1639` | gemini-3-pro-high | 82 | B → **A** | 74 | C → **B** |
-| `20260216_0858` | gemini-3-pro-low | 77 | C → **A** | 77 | C → **A** |
+- **Truth Gate** — Anti-hallucination protocol requiring all evidence to be labeled as `[OBSERVED]`, `[INFERRED]`, or `[UNKNOWN]`. External facts must be `[OBSERVED]` or `[UNKNOWN]`, never `[INFERRED]`.
+- **Checkpoint Handshake** — Synchronous wait protocol between agent tiers. The executor signals via tool call; the reviewer ACKs only after physical verification.
+- **Delta Analysis** — Round 1 vs Round 2 comparison revealing whether a model is `Native-Good`, `Prompt-Steerable`, or `Hopeless`.
+- **Closure Gate** — `scripts/operator_closure_gate.sh` runs 8+ automated checks before any artifacts can be pushed.
 
 ---
 
-## 最终选型建议（当前批次）
+## Project Structure
 
-> 结论基于“有效样本 + 评分口径修正后结果”，并结合审计完整性稳定性。
+```
+.
+├── WORKFLOW-ModelEval-Self-OPERATOR.md   # Operator state machine
+├── WORKFLOW-ModelEval-Self-REVIEW.md     # Reviewer state machine
+├── WORKFLOW-ModelEval-Self-EXEC.md       # Executor task spec
+├── WORKFLOW-Truth-Gate.md                # Anti-hallucination protocol
+├── A-MODE-MEDIATED-EXEC-SPEC.md         # Indirect execution mode
+├── B-MODE-DIRECT-EXEC-SPEC.md           # Direct execution mode
+├── SCORING-UNIVERSAL.md                 # D1-D5 scoring standard
+├── SCORING-MAPPING.md                   # Cross-system score mapping
+├── SCORING-ENV.md                       # Environment configuration
+├── CLAUDE-REVIEW-GUIDE-UNIFIED.md       # Claude review methodology
+├── scripts/
+│   ├── transcript_scalpel.py            # JSONL → Markdown converter
+│   ├── operator_closure_gate.sh         # Final artifact verification
+│   └── check_checkpoint_chain.sh        # Checkpoint chain validator
+├── Audit-Report/                        # Evaluation results by date
+│   ├── 2026-02-16/
+│   ├── 2026-02-17/
+│   ├── 2026-02-18/
+│   ├── 2026-02-19/
+│   └── 2026-02-20/
+└── MyArchive/                           # Legacy docs and notes
+```
 
-### 推荐分层
+---
 
-| 分层 | 模型 | 建议 |
-|---|---|---|
-| **主力（默认）** | `openai-codex/gpt-5.3-codex` | 综合稳定性最好（含 `1607` 双轮 A/A），优先作为主评测执行模型 |
-| **强备选** | `google-antigravity/gemini-3-pro-low` | 当前样本 A/A，执行稳定，可作为主力备份或并行复核模型 |
-| **可用备选** | `google-antigravity/gemini-3-pro-high` | A/B，可用；存在一次 self-ID 漂移（报告层需持续做模型一致性核验） |
-| **谨慎使用** | `google-antigravity/gemini-3-flash` | 当前仅 B/B，适合轻量任务或成本优先场景，不建议做主审计基模 |
+## Tested Models
 
-### 执行策略建议
+The framework has been used to evaluate models from multiple providers including
+OpenAI (Codex / GPT-5.3), Google (Gemini 3 Flash / Pro), and Anthropic (Claude).
+Full audit reports with D1-D5 scores are available in the `Audit-Report/` directory.
 
-1. 默认主链路：`gpt-5.3-codex`
-2. 关键 run 双轨复核：`gpt-5.3-codex` + `gemini-3-pro-low`
-3. 当出现模型自述漂移时：以系统元数据为真相源，报告侧记录 `Model consistency`
-4. 无效样本（路径/仓库跑偏）继续执行“直接剔除，不入横评”规则
+---
+
+## Contributing
+
+This project's workflow files (`.md`) are high-density state-machine triggers, not
+prose documentation. **Do not manually edit workflow files** — use an LLM to generate
+structurally compatible patches.
+
+To contribute:
+
+1. Fork the repository
+2. Read [CLAUDE-REVIEW-GUIDE-UNIFIED.md](CLAUDE-REVIEW-GUIDE-UNIFIED.md) for methodology
+3. Run an evaluation batch and submit the audit report via PR
+
+---
+
+## License
+
+[MIT](LICENSE)
